@@ -285,8 +285,9 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
         txt_pension = f"<b>S/ {row['Bruto_Pension']:,.2f}</b>{tag_min_p}"
 
         txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto']:,.2f}</b></font>"
+        txt_anual = f"<font color='#03318e' size='8.5'><b>S/ {row['Total_Bruto'] * 12:,.2f}</b></font>"
 
-        msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} por un total mensual de S/ {row['Total_Bruto']:,.2f} para {datos['razon_social']}."
+        msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} por S/ {row['Total_Bruto']:,.2f} mensuales para {datos['razon_social']}."
         link_wa = f"https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_wa)}"
         txt_accion = f"<a href='{link_wa}' color='#089685'><font size='8'><b>► EMITIR<br/>AHORA</b></font></a>"
 
@@ -295,7 +296,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
             Paragraph(txt_salud, st_td_c),
             Paragraph(txt_pension, st_td_c),
             Paragraph(txt_total, st_td_c),
-            Paragraph(txt_anual, st_td_c),
+            Paragraph(txt_anual, st_td_c), # <--- Nueva celda anual insertada aquí
             Paragraph(txt_accion, st_td_c)
         ])
 
