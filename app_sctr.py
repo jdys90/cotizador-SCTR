@@ -362,7 +362,19 @@ def generar_pdf_sctr(datos, df_res, folio):
     ]))
     elements.append(t_excl)
     elements.append(Spacer(1, 10))
-
+    if razon_experto:
+        elements.append(Paragraph("4. ANÁLISIS Y RECOMENDACIÓN DEL EXPERTO", st_sub))
+        elements.append(Spacer(1, 4))
+        t_box = Table([[Paragraph(f"<b>JUSTIFICACIÓN COMERCIAL:</b><br/><br/>{razon_experto}", st_norm)]], colWidths=[18.0*cm])
+        t_box.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO),
+            ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP),
+            ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
+            ('PADDING', (0,0), (-1,-1), 6)
+        ]))
+        elements.append(t_box)
+        elements.append(Spacer(1, 8))
+        
     # --- 5. PIE DE PÁGINA ---
     footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en caso de siniestros laborales.</i>"
     elements.append(Paragraph(footer_txt, ParagraphStyle('FT', parent=st_norm, fontSize=7.5, textColor=AZUL_CORP, alignment=1)))
