@@ -243,10 +243,11 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
 
     elements.append(Paragraph("2. PROPUESTA ECONÓMICA (MONTOS FINALES CON IGV INCLUIDO)", st_sub))
     
-    headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', 'Total Mensual\n(Salud + Pensión)', 'Acción / Emisión']
-    anchos = [3.8*cm, 4.2*cm, 4.2*cm, 3.0*cm, 2.8*cm]
+    headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', 'Total Mensual\n(Salud + Pensión)', 'Total Anual\n(12 meses)', 'Acción / Emisión']
+    # Redistribuimos los anchos para sumar los 18cm totales de la hoja A4
+    anchos = [3.4*cm, 3.4*cm, 3.4*cm, 2.6*cm, 2.6*cm, 2.6*cm]
     data_tabla = [[Paragraph(h, st_th) for h in headers]]
-
+    
     for idx, row in df_res.iterrows():
         es_mejor = (idx == 0)
         cia = str(row['Aseguradora'])
@@ -294,6 +295,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
             Paragraph(txt_salud, st_td_c),
             Paragraph(txt_pension, st_td_c),
             Paragraph(txt_total, st_td_c),
+            Paragraph(txt_anual, st_td_c),
             Paragraph(txt_accion, st_td_c)
         ])
 
