@@ -21,13 +21,10 @@ st.set_page_config(page_title="Cotizador SCTR Digital | YQ Corredores", layout="
 
 st.markdown("""
     <style>
-        /* 1. Ocultar cabeceras y menú nativo */
         header, [data-testid="stHeader"], [data-testid="stToolbar"] {
             display: none !important; 
             visibility: hidden !important; 
         }
-        
-        /* 2. Destruir marca de agua y footers */
         footer {visibility: hidden !important; display: none !important;}
         .stApp > footer {display: none !important;}
         [data-testid="stBottom"], [data-testid="stBottomBar"] {display: none !important;}
@@ -39,7 +36,6 @@ st.markdown("""
         button[title*="fullscreen"], button[title*="Fullscreen"], [data-testid="StyledFullScreenButton"] {display: none !important;}
         .block-container { padding-bottom: 0rem !important; }
 
-        /* 3. Botón Principal Corporativo (#03318e) */
         div.stButton > button {
             background-color: #03318e !important;
             color: white !important;
@@ -60,7 +56,6 @@ st.markdown("""
             color: white !important;
         }
 
-        /* 4. Botón Descargar PDF (#03318e) */
         div[data-testid="stDownloadButton"] button {
             background-color: #03318e !important; 
             color: white !important; 
@@ -91,12 +86,14 @@ try:
 except ImportError:
     st.error("❌ Falta la librería 'reportlab'. Asegúrate de incluirla en tu requirements.txt")
     st.stop()
+
 # --- CONSTANTES DE ACCESO ---
 CODIGO_ADMIN = "ADMIN2026"
 CODIGOS_ASESORES = ["ASE01", "ASE02", "ASE03", "VENTAS2026"]
 
 def obtener_hora_peru():
     return datetime.datetime.utcnow() - timedelta(hours=5)
+
 # ==========================================
 # 2. FUNCIONES GOOGLE SHEETS Y ZOHO CRM
 # ==========================================
@@ -179,10 +176,11 @@ def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, tra
             return True, "Enviado por respaldo correo."
         except Exception as ex:
             return False, str(ex)
+
 # ==========================================
-# 3. MOTOR GENERADOR DE PDF (SLIP SCTR LIMPIO Y PROFESIONAL)
+# 3. MOTOR GENERADOR DE PDF (SLIP SCTR CON ANÁLISIS DE EXPERTO)
 # ==========================================
-def generar_pdf_sctr(datos, df_res, folio):
+def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=18, bottomMargin=18)
     estilos = getSampleStyleSheet()
@@ -206,7 +204,6 @@ def generar_pdf_sctr(datos, df_res, folio):
 
     elements = []
 
-    # --- CABECERA ---
     img_yq = ImageRL("logo.png", width=4.0*cm, height=2.0*cm, kind='proportional') if os.path.exists("logo.png") else Paragraph("<b>YQ CORREDORES</b>", st_tit)
     p_header = Paragraph("<b>YQ CORREDORES DE SEGUROS</b><br/>Slip de Cotización SCTR (Salud y Pensión)<br/><font size='7.5' color='#666666'>Seguro Complementario de Trabajo de Riesgo - Ley N° 26790</font>", st_tit)
     fecha_str = obtener_hora_peru().strftime('%d/%m/%Y %H:%M')
@@ -217,7 +214,6 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_head)
     elements.append(Spacer(1, 10))
 
-    # --- DATOS DEL CONTRATANTE ---
     elements.append(Paragraph("1. INFORMACIÓN DEL CONTRATANTE Y RIESGO COTIZADO", st_sub))
     data_cliente = [
         [Paragraph("<b>Contratante:</b>", st_bold), Paragraph(datos['razon_social'], st_norm),
@@ -238,7 +234,6 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_cli)
     elements.append(Spacer(1, 12))
 
-    # --- TABLA COMPARATIVA SIMPLIFICADA (SOLO PRECIO FINAL / BRUTO) ---
     elements.append(Paragraph("2. PROPUESTA ECONÓMICA (MONTOS FINALES CON IGV INCLUIDO)", st_sub))
     
     headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', 'Total Mensual\n(Salud + Pensión)', 'Acción / Emisión']
@@ -273,7 +268,6 @@ def generar_pdf_sctr(datos, df_res, folio):
             else:
                 celda_cia.append(Paragraph(f"<font color='#03318e'><b>{cia}</b></font>", st_td_c))
 
-        # Mostramos únicamente lo que el cliente va a pagar (Bruto c/IGV)
         tag_min_s = " <font size='6.5' color='#666666'>(Prima Minima)</font>" if row['Aplico_Min_Salud'] else ""
         txt_salud = f"<b>S/ {row['Bruto_Salud']:,.2f}</b>{tag_min_s}"
         
@@ -310,19 +304,16 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_ofertas)
     elements.append(Spacer(1, 6))
 
-    # Verificamos si alguna aseguradora aplicó prima mínima
     algun_minimo = any(row['Aplico_Min_Salud'] or row['Aplico_Min_Pension'] for _, row in df_res.iterrows())
-
     if algun_minimo:
         nota_impuestos = (
-            "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) según corresponda."
-            "Cuando un importe indica <i>(Prima Mínima)</i>,significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
+            "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) según corresponda. "
+            "Cuando un importe indica <i>(Prima Mínima)</i>, significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
         )
         elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
         elements.append(Spacer(1, 10))
-    # --- 3. COBERTURAS SIMPLIFICADAS Y COMERCIALES ---
+
     elements.append(Paragraph("3. BENEFICIOS Y COBERTURAS PRINCIPALES", st_sub))
-    
     cob_salud_txt = (
         "<b>SCTR SALUD (EPS):</b><br/>"
         "• <b>Atención Médica al 100%:</b> Cobertura integral sin límite de dinero ni complejidad (clínicas, medicamentos, cirugías) hasta la recuperación total.<br/>"
@@ -346,7 +337,6 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_cob)
     elements.append(Spacer(1, 10))
 
-    # --- 4. EXCLUSIONES CLAVE ---
     excl_txt = (
         "<b>EXCLUSIONES Y CONSIDERACIONES IMPORTANTES:</b><br/>"
         "• No cubre accidentes ocurridos fuera de la jornada laboral o en el trayecto habitual (casa-trabajo / <i>in itinere</i>), salvo movilidad contratada por la empresa.<br/>"
@@ -362,6 +352,7 @@ def generar_pdf_sctr(datos, df_res, folio):
     ]))
     elements.append(t_excl)
     elements.append(Spacer(1, 10))
+
     if razon_experto:
         elements.append(Paragraph("4. ANÁLISIS Y RECOMENDACIÓN DEL EXPERTO", st_sub))
         elements.append(Spacer(1, 4))
@@ -374,9 +365,8 @@ def generar_pdf_sctr(datos, df_res, folio):
         ]))
         elements.append(t_box)
         elements.append(Spacer(1, 8))
-        
-    # --- 5. PIE DE PÁGINA ---
-    footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en caso de siniestros laborales.</i>"
+
+    footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en siniestros laborales.</i>"
     elements.append(Paragraph(footer_txt, ParagraphStyle('FT', parent=st_norm, fontSize=7.5, textColor=AZUL_CORP, alignment=1)))
 
     doc.build(elements)
@@ -384,14 +374,13 @@ def generar_pdf_sctr(datos, df_res, folio):
     return buffer
 
 # ==========================================
-# 4. MOTOR DE CÁLCULO SCTR (LECTOR DE EXCEL)
+# 4. MOTOR DE CÁLCULO SCTR
 # ==========================================
 @st.cache_data
 def cargar_tarifario_sctr():
     archivos_posibles = ['Tarifario_sctr_2.xlsx', 'Tarifario_sctr.xlsx']
     ruta_activa = next((f for f in archivos_posibles if os.path.exists(f)), None)
-    if not ruta_activa:
-        return None, None
+    if not ruta_activa: return None, None
     try:
         xls = pd.ExcelFile(ruta_activa)
         df_tarifas = pd.read_excel(xls, sheet_name='Tarifario_sctr')
@@ -405,13 +394,11 @@ def cargar_tarifario_sctr():
 
 def cotizar_sctr(actividad_elegida, trabajadores, planilla):
     df_t, df_i = cargar_tarifario_sctr()
-    if df_t is None or df_i is None:
-        return pd.DataFrame()
+    if df_t is None or df_i is None: return pd.DataFrame()
 
     col_act = 'Actividades / CIIU Principales que agrupa'
     fila = df_t[df_t[col_act] == actividad_elegida]
-    if fila.empty:
-        return pd.DataFrame()
+    if fila.empty: return pd.DataFrame()
     
     fila = fila.iloc[0]
     resultados = []
@@ -426,13 +413,11 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
     for cia_nombre, col_salud, col_pension in aseguradoras_map:
         val_s = fila.get(col_salud, None)
         val_p = fila.get(col_pension, None)
-        if pd.isna(val_s) or pd.isna(val_p):
-            continue
+        if pd.isna(val_s) or pd.isna(val_p): continue
 
         tasa_salud = float(str(val_s).replace(',', '.'))
         tasa_pension = float(str(val_p).replace(',', '.'))
 
-        # Extraer Impuestos (fila 0), Prima Mínima Emisión (fila 1), Prima Mínima Inclusión (fila 2)
         imp_salud = float(df_i[col_salud].iloc[0])
         min_emision_salud = float(df_i[col_salud].iloc[1])
         min_inc_salud = float(df_i[col_salud].iloc[2])
@@ -441,13 +426,11 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
         min_emision_pension = float(df_i[col_pension].iloc[1])
         min_inc_pension = float(df_i[col_pension].iloc[2])
 
-        # Cálculo Salud
         neto_calc_salud = planilla * (tasa_salud / 100.0)
         aplico_min_salud = neto_calc_salud < min_emision_salud
         neto_salud = max(neto_calc_salud, min_emision_salud)
         bruto_salud = neto_salud * (1.0 + imp_salud)
 
-        # Cálculo Pensión
         neto_calc_pension = planilla * (tasa_pension / 100.0)
         aplico_min_pension = neto_calc_pension < min_emision_pension
         neto_pension = max(neto_calc_pension, min_emision_pension)
@@ -459,10 +442,8 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
             "Aseguradora": cia_nombre,
             "Tasa_Salud": tasa_salud,
             "Tasa_Pension": tasa_pension,
-            "Neto_Salud": round(neto_salud, 2),
             "Bruto_Salud": round(bruto_salud, 2),
             "Aplico_Min_Salud": aplico_min_salud,
-            "Neto_Pension": round(neto_pension, 2),
             "Bruto_Pension": round(bruto_pension, 2),
             "Aplico_Min_Pension": aplico_min_pension,
             "Min_Inc_Salud": round(min_inc_salud, 2),
@@ -476,7 +457,7 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
     return df_out
 
 # ==========================================
-# 5. INTERFAZ DE USUARIO (MODO CAMALEÓN + LOGOS)
+# 5. INTERFAZ DE USUARIO Y PANEL ADMIN
 # ==========================================
 df_t, df_i = cargar_tarifario_sctr()
 origen_url = st.query_params.get("origen", "")
@@ -484,8 +465,7 @@ origen_url = st.query_params.get("origen", "")
 if origen_url != "web":
     if os.path.exists("logo_web.png"):
         c_l1, c_l2, c_l3 = st.columns([1, 2, 1])
-        with c_l2:
-            st.image("logo_web.png", use_container_width=True)
+        with c_l2: st.image("logo_web.png", use_container_width=True)
     st.markdown("""
         <div style="text-align: center; padding: 15px 0px;">
             <h1 style="color: #03318e; font-size: 2.3rem; font-weight: 800; margin-bottom: 8px;">
@@ -497,20 +477,19 @@ if origen_url != "web":
         </div>
     """, unsafe_allow_html=True)
     st.divider()
-    
-# EVALUACIÓN DE ACCESO ADMIN
+
 codigo_actual = st.session_state.get('codigo_secreto', '')
 es_admin = (codigo_actual == CODIGO_ADMIN or codigo_actual in CODIGOS_ASESORES)
 
 if df_t is None:
-    st.error("❌ No se encontró el archivo 'Tarifario_sctr.xlsx' o 'Tarifario_sctr_2.xlsx' en el proyecto.")
+    st.error("❌ No se encontró el archivo 'Tarifario_sctr.xlsx' en el repositorio.")
 else:
     st.markdown("<h3 style='color: #03318e; font-weight: 700; margin-bottom: 10px;'>1. Datos de la Empresa / Contratante</h3>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
         razon_social = st.text_input("Razón Social o Nombre Completo", placeholder="Ej: Constructora Peruana SAC")
-        ruc = st.text_input("RUC o DNI", max_chars=11, placeholder="Ej: 20601234567")
+        ruc = st.text_input("RUC o DNI", max_chars=11, placeholder="Ej: 20601234567 o 40123456")
     with col2:
         celular = st.text_input("Celular / WhatsApp", max_chars=9, placeholder="Ej: 999123456")
         email = st.text_input("Correo Electrónico", placeholder="compras@empresa.com")
@@ -526,13 +505,18 @@ else:
     actividades_filtradas = df_t[df_t[col_rubro] == rubro_sel][col_act].dropna().unique().tolist()
     actividad_sel = st.selectbox("Actividad Económica Específica (CIIU)", actividades_filtradas)
 
-    RMV_VIGENTE = 1230.0
+    # --- AVISO SI NO ENCUENTRA SU ACTIVIDAD ---
+    st.info("💡 ¿No encuentras la actividad exacta de tu empresa? **Contáctanos directo por WhatsApp** y te ayudaremos a cotizar al instante.")
+    msg_no_encuentra = "Hola YQ, busqué mi actividad en el cotizador SCTR pero necesito asesoría para cotizar un rubro especial."
+    link_no_encuentra = f"https://wa.me/51906462225?text={urllib.parse.quote(msg_no_encuentra)}"
+    st.markdown(f"<a href='{link_no_encuentra}' target='_blank' style='color: #089685; font-weight: 700; text-decoration: underline;'>👉 Clic aquí para cotizar por WhatsApp si tu actividad no figura en la lista</a>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
+    RMV_VIGENTE = 1230.0
     col_t1, col_t2 = st.columns(2)
     with col_t1:
         n_trabajadores = st.number_input("Número de Trabajadores", min_value=1, max_value=5000, value=1)
     with col_t2:
-        # Calculamos la planilla mínima legal multiplicando N° trabajadores por S/ 1,230
         planilla_minima_legal = float(n_trabajadores * RMV_VIGENTE)
         planilla_mensual = st.number_input(
             "Planilla Total Mensual (S/)", 
@@ -541,7 +525,7 @@ else:
             value=planilla_minima_legal, 
             step=100.0
         )
-        st.caption(f"*Calculado sobre el sueldo mínimo vigente (S/ 1,230.00 por trabajador = S/ {planilla_minima_legal:,.2f}). Puedes digitar un monto mayor si tu planilla real es superior.*")
+        st.caption(f"*Calculado sobre el sueldo mínimo vigente (S/ 1,230.00 por trabajador = S/ {planilla_minima_legal:,.2f}). Puedes digitar un monto mayor.*")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Generar Propuesta SCTR", type="primary", use_container_width=True):
@@ -549,14 +533,14 @@ else:
         correo_limpio = email.strip()
         ruc_limpio = ruc.strip()
         
-        # Validar formato RUC (11 dígitos, empieza con 10 o 20) o DNI (8 dígitos)
-        es_ruc_valido = bool(re.match(r'^(10|20)\d{9}$', ruc_limpio))
-        es_dni_valido = bool(re.match(r'^\d{8}$', ruc_limpio))
+        # Validar RUC (11 dígitos, empieza en 10 o 20) o DNI (8 dígitos)
+        es_ruc = bool(re.match(r'^(10|20)\d{9}$', ruc_limpio))
+        es_dni = bool(re.match(r'^\d{8}$', ruc_limpio))
 
         if not razon_social.strip():
             st.error("⚠️ Por favor ingresa la Razón Social o Nombre del Contratante.")
-        elif not ruc_limpio or not (es_ruc_valido or es_dni_valido):
-            st.error("🏢 Por favor ingresa un RUC válido (11 dígitos, empezando en 10 o 20) o un DNI válido (8 dígitos).")
+        elif not ruc_limpio or not (es_ruc or es_dni):
+            st.error("🏢 Ingresa un RUC válido (11 dígitos, empezando en 10 o 20) o un DNI válido (8 dígitos).")
         elif len(celular_limpio) != 9 or not celular_limpio.startswith('9'):
             st.error("📱 Por favor ingresa un número de celular válido de 9 dígitos (Ej: 999123456).")
         elif not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio):
@@ -566,34 +550,37 @@ else:
             st.session_state['res_sctr'] = df_res
             st.session_state['datos_sctr'] = {
                 "razon_social": razon_social.strip(),
-                "ruc": ruc.strip() if ruc.strip() else "Por confirmar",
+                "ruc": ruc_limpio,
                 "celular": celular_limpio,
-                "email": email.strip(),
+                "email": correo_limpio,
                 "rubro": rubro_sel,
                 "actividad": actividad_sel,
                 "trabajadores": n_trabajadores,
                 "planilla": planilla_mensual
             }
             st.session_state['id_sctr'] = f"SCTR-{obtener_hora_peru().strftime('%m%d-%H%M')}"
+            
+            if not df_res.empty:
+                mejor_c = df_res.iloc[0]['Aseguradora']
+                mejor_t = df_res.iloc[0]['Total_Bruto']
+                enviar_notificacion_sctr(razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t)
+                
+                f_log, h_log = obtener_hora_peru().strftime('%Y-%m-%d'), obtener_hora_peru().strftime('%H:%M:%S')
+                guardar_en_sheets([f_log, h_log, st.session_state['id_sctr'], razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t])
 
     if st.session_state.get('res_sctr') is not None:
         df_res = st.session_state['res_sctr']
         if df_res.empty:
             st.warning("No se encontraron tasas automáticas para esta actividad.")
         else:
-            # Creamos opciones de aseguradoras para el selector del Admin
             opciones_cias = df_res['Aseguradora'].tolist()
             
             if es_admin:
                 st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación para el cliente:")
-                # Selector para elegir cuál es la mejor opción
                 mejor_opcion_elegida = st.selectbox("Selecciona la Aseguradora a destacar como 'Mejor Opción':", opciones_cias, index=0)
-                
-                # Campo de texto para escribir el porqué
                 razon_default = f"Este plan ofrece la tarifa más competitiva del mercado para la actividad de {st.session_state['datos_sctr']['rubro']}, optimizando los costos de planilla y cumpliendo con las exigencias de ley."
                 razon_admin = st.text_area("Motivo (Análisis del Experto para el PDF):", value=razon_default)
                 
-                # Reordenamos el DataFrame para que la opción elegida aparezca primera en la tabla
                 df_res['es_top'] = df_res['Aseguradora'] == mejor_opcion_elegida
                 df_res = df_res.sort_values(by=['es_top', 'Total_Bruto'], ascending=[False, True]).drop(columns=['es_top']).reset_index(drop=True)
             else:
@@ -618,7 +605,6 @@ else:
             datos = st.session_state['datos_sctr']
             folio = st.session_state['id_sctr']
             
-            # Generamos el PDF pasando la razón del experto
             pdf_buffer = generar_pdf_sctr(datos, df_res, folio, razon_admin)
             nombre_clean = re.sub(r'[^a-zA-Z0-9]', '', datos['razon_social'])[:15] or "Empresa"
             
@@ -641,6 +627,7 @@ else:
                         Emitir Póliza por WhatsApp
                     </a>
                 """, unsafe_allow_html=True)
+
 # ==========================================
 # 6. PIE DE PÁGINA: ACCESO ADMIN
 # ==========================================
@@ -658,4 +645,5 @@ with st.expander("🛡️ Acceso Interno YQ (Solo Empleados)"):
                 st.download_button("💾 Guardar Archivo CSV", csv_data, f"Historial_SCTR_{obtener_hora_peru().strftime('%d%m%Y')}.csv", "text/csv")
             else:
                 st.info("No hay registros en Google Sheets todavía.")
+
 st.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
