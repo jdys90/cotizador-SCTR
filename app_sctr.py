@@ -284,7 +284,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
         txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto']:,.2f}</b></font>"
 
         msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} por un total mensual de S/ {row['Total_Bruto']:,.2f} para {datos['razon_social']}."
-        link_wa = f"https://wa.me/51906462225?text={urllib.parse.quote(msg_wa)}"
+        link_wa = f"https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_wa)}"
         txt_accion = f"<a href='{link_wa}' color='#089685'><font size='8'><b>► EMITIR<br/>AHORA</b></font></a>"
 
         data_tabla.append([
@@ -515,7 +515,7 @@ else:
     # --- AVISO SI NO ENCUENTRA SU ACTIVIDAD ---
     st.info("💡 ¿No encuentras la actividad exacta de tu empresa? **Contáctanos directo por WhatsApp** y te ayudaremos a cotizar al instante.")
     msg_no_encuentra = "Hola YQ, busqué mi actividad en el cotizador SCTR pero necesito asesoría para cotizar un rubro especial."
-    link_no_encuentra = f"https://wa.me/51906462225?text={urllib.parse.quote(msg_no_encuentra)}"
+    link_no_encuentra = f"https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_no_encuentra)}"
     st.markdown(f"<a href='{link_no_encuentra}' target='_blank' style='color: #089685; font-weight: 700; text-decoration: underline;'>👉 Clic aquí para cotizar por WhatsApp si tu actividad no figura en la lista</a>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -628,7 +628,7 @@ else:
                 mejor_cia = df_res.iloc[0]['Aseguradora']
                 mejor_total = df_res.iloc[0]['Total_Bruto']
                 msg_wa = f"Hola YQ, acabo de cotizar el SCTR ({folio}) para {datos['razon_social']} y deseo emitir la póliza con {mejor_cia} por S/ {mejor_total:,.2f}."
-                enlace_wa = f"https://wa.me/51906462225?text={urllib.parse.quote(msg_wa)}"
+                enlace_wa = f"https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_wa)}"
                 st.markdown(f"""
                     <a href='{enlace_wa}' target='_blank' style='display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; background-color: #25D366; color: white; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; box-sizing: border-box;'>
                         Emitir Póliza por WhatsApp
