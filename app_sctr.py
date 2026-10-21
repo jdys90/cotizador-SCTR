@@ -222,12 +222,16 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_ofertas)
     elements.append(Spacer(1, 6))
 
-    nota_impuestos = (
-        "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) y el Derecho de Emisión (3%) según corresponda."
-        "Cuando un monto indica <i>(Príma Mínima)</i>, significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
-    )
-    elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
-    elements.append(Spacer(1, 10))
+    # Verificamos si alguna aseguradora aplicó prima mínima
+    algun_minimo = any(row['Aplico_Min_Salud'] or row['Aplico_Min_Pension'] for _, row in df_res.iterrows())
+
+    if algun_minimo:
+        nota_impuestos = (
+            "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) más IGV (18%) en SCTR Pensión "
+            "(excepto Protecta Pensión que aplica solo 18%). <i>(Mínimo de ley)</i> indica que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
+        )
+        elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
+        elements.append(Spacer(1, 10))
     # --- 3. COBERTURAS SIMPLIFICADAS Y COMERCIALES ---
     elements.append(Paragraph("3. BENEFICIOS Y COBERTURAS PRINCIPALES", st_sub))
     
@@ -439,15 +443,22 @@ else:
     if st.button("Generar Propuesta SCTR", type="primary", use_container_width=True):
         celular_limpio = "".join(filter(str.isdigit, str(celular)))
         correo_limpio = email.strip()
+        ruc_limpio = ruc.strip()
         
+        # Validar formato RUC (11 dígitos, empieza con 10 o 20) o DNI (8 dígitos)
+        es_ruc_valido = bool(re.match(r'^(10|20)\d{9}$', ruc_limpio))
+        es_dni_valido = bool(re.match(r'^\d{8}$', ruc_limpio))
+
         if not razon_social.strip():
             st.error("⚠️ Por favor ingresa la Razón Social o Nombre del Contratante.")
-        elif not ruc.strip() or len(ruc.strip()) not in [8, 11]:
-            st.error("🏢 Por favor ingresa un número de RUC (11 dígitos) o DNI (8 dígitos) válido.")
+        elif not ruc_limpio or not (es_ruc_valido or es_dni_valido):
+            st.error("🏢 Por favor ingresa un RUC válido (11 dígitos, empezando en 10 o 20) o un DNI válido (8 dígitos).")
         elif len(celular_limpio) != 9 or not celular_limpio.startswith('9'):
             st.error("📱 Por favor ingresa un número de celular válido de 9 dígitos (Ej: 999123456).")
         elif not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio):
             st.error("📧 Por favor ingresa un correo electrónico real para enviarte tu propuesta.")
+        else:
+            # Procesamiento exitoso de cotización...
         else:
             df_res = cotizar_sctr(actividad_sel, n_trabajadores, planilla_mensual)
             st.session_state['res_sctr'] = df_res
