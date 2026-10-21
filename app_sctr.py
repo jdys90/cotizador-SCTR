@@ -186,10 +186,10 @@ def generar_pdf_sctr(datos, df_res, folio):
                 celda_cia.append(Paragraph(f"<font color='#03318e'><b>{cia}</b></font>", st_td_c))
 
         # Mostramos únicamente lo que el cliente va a pagar (Bruto c/IGV)
-        tag_min_s = " <font size='6.5' color='#666666'>(Mínimo de ley)</font>" if row['Aplico_Min_Salud'] else ""
+        tag_min_s = " <font size='6.5' color='#666666'>(Prima Minima)</font>" if row['Aplico_Min_Salud'] else ""
         txt_salud = f"<b>S/ {row['Bruto_Salud']:,.2f}</b>{tag_min_s}"
         
-        tag_min_p = " <font size='6.5' color='#666666'>(Mínimo de ley)</font>" if row['Aplico_Min_Pension'] else ""
+        tag_min_p = " <font size='6.5' color='#666666'>(Prima Minima)</font>" if row['Aplico_Min_Pension'] else ""
         txt_pension = f"<b>S/ {row['Bruto_Pension']:,.2f}</b>{tag_min_p}"
 
         txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto']:,.2f}</b></font>"
@@ -223,8 +223,8 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(Spacer(1, 6))
 
     nota_impuestos = (
-        "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) más IGV (18%) en SCTR Pensión "
-        "(excepto Protecta Pensión que aplica solo 18%). Cuando un monto indica <i>(Mínimo de ley)</i>, significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
+        "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) y el Derecho de Emisión (3%) según corresponda."
+        "Cuando un monto indica <i>(Príma Mínima)</i>, significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
     )
     elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
     elements.append(Spacer(1, 10))
