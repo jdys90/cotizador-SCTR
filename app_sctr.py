@@ -272,7 +272,7 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(Spacer(1, 10))
 
     # --- 5. PIE DE PÁGINA ---
-    footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Emisión inmediata, asesoría permanente y defensa técnica en siniestros laborales.</i>"
+    footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en caso de siniestros laborales.</i>"
     elements.append(Paragraph(footer_txt, ParagraphStyle('FT', parent=st_norm, fontSize=7.5, textColor=AZUL_CORP, alignment=1)))
 
     doc.build(elements)
