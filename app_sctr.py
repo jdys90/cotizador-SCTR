@@ -458,8 +458,6 @@ else:
         elif not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio):
             st.error("📧 Por favor ingresa un correo electrónico real para enviarte tu propuesta.")
         else:
-            # Procesamiento exitoso de cotización...
-        else:
             df_res = cotizar_sctr(actividad_sel, n_trabajadores, planilla_mensual)
             st.session_state['res_sctr'] = df_res
             st.session_state['datos_sctr'] = {
