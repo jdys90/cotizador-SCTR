@@ -581,7 +581,31 @@ else:
         if df_res.empty:
             st.warning("No se encontraron tasas automáticas para esta actividad.")
         else:
-            st.success(f"¡Hemos comparado el mercado! Aquí tienes las {len(df_res)} mejores opciones para tu empresa:")
+            # Creamos opciones de aseguradoras para el selector del Admin
+            opciones_cias = df_res['Aseguradora'].tolist()
+            
+            if es_admin:
+                st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación para el cliente:")
+                # Selector para elegir cuál es la mejor opción
+                mejor_opcion_elegida = st.selectbox("Selecciona la Aseguradora a destacar como 'Mejor Opción':", opciones_cias, index=0)
+                
+                # Campo de texto para escribir el porqué
+                razon_default = f"Este plan ofrece la tarifa más competitiva del mercado para la actividad de {st.session_state['datos_sctr']['rubro']}, optimizando los costos de planilla y cumpliendo con las exigencias de ley."
+                razon_admin = st.text_area("Motivo (Análisis del Experto para el PDF):", value=razon_default)
+                
+                # Reordenamos el DataFrame para que la opción elegida aparezca primera en la tabla
+                df_res['es_top'] = df_res['Aseguradora'] == mejor_opcion_elegida
+                df_res = df_res.sort_values(by=['es_top', 'Total_Bruto'], ascending=[False, True]).drop(columns=['es_top']).reset_index(drop=True)
+            else:
+                mejor_opcion_elegida = opciones_cias[0]
+                razon_admin = (
+                    "Nuestro algoritmo ha analizado el mercado SCTR filtrando las tasas de todas las aseguradoras disponibles. "
+                    "Esta opción representa la mejor relación costo-beneficio para proteger a tus trabajadores, garantizando "
+                    "cobertura inmediata ante la autoridad laboral y optimizando el presupuesto de tu empresa."
+                )
+
+            st.markdown("---")
+            st.success(f"¡Comparativa lista! Opción recomendada destacada: **{mejor_opcion_elegida}**")
             
             df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', 'Total_Bruto']].copy()
             df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', 'Total Mensual c/IGV']
@@ -593,9 +617,11 @@ else:
 
             datos = st.session_state['datos_sctr']
             folio = st.session_state['id_sctr']
-            pdf_buffer = generar_pdf_sctr(datos, df_res, folio)
+            
+            # Generamos el PDF pasando la razón del experto
+            pdf_buffer = generar_pdf_sctr(datos, df_res, folio, razon_admin)
             nombre_clean = re.sub(r'[^a-zA-Z0-9]', '', datos['razon_social'])[:15] or "Empresa"
-
+            
             col_b1, col_b2 = st.columns(2)
             with col_b1:
                 st.download_button(
