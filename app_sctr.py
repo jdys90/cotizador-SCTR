@@ -145,16 +145,21 @@ def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, tra
         url_crm = "https://www.zohoapis.com/crm/v2/Leads"
         headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
         
-        desc = f"RUC/DNI: {ruc} | Rubro: {rubro} | Actividad: {actividad} | Trabajadores: {trabajadores} | Planilla: S/ {planilla:,.2f} | Mejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
+        # Detalle limpio para la descripción del CRM
+        desc = f"RUC: {ruc} | Rubro: {rubro} | Actividad: {actividad} | Trabajadores: {trabajadores} | Planilla: S/ {planilla:,.2f} | Mejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
+        
+        # Mapeo exacto para que la Razón Social vaya a Empresa y el contacto a Nombre
         payload = {
             "data": [{
-                "Last_Name": cliente,
+                "Company": cliente,              # <--- Aquí se guarda la Razón Social de la empresa
+                "Last_Name": "Contacto Comercial",# <--- Nombre genérico de contacto para el lead B2B
                 "Email": email,
                 "Mobile": str(celular),
                 "Lead_Source": "Cotizador SCTR Web",
                 "Description": desc
             }]
         }
+        
         res_crm = requests.post(url_crm, headers=headers, json=payload)
         if res_crm.status_code in [200, 201]: return True, "Éxito CRM"
         else: raise Exception(res_crm.text)
