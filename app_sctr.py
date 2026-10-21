@@ -227,8 +227,8 @@ def generar_pdf_sctr(datos, df_res, folio):
 
     if algun_minimo:
         nota_impuestos = (
-            "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) más IGV (18%) en SCTR Pensión "
-            "(excepto Protecta Pensión que aplica solo 18%). <i>(Mínimo de ley)</i> indica que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
+            "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) según corresponda."
+            "Cuando un importe indica <i>(Prima Mínima)</i>,significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
         )
         elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
         elements.append(Spacer(1, 10))
