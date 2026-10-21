@@ -6,6 +6,10 @@ import re
 import os
 from io import BytesIO
 from datetime import timedelta
+import smtplib
+import gspread
+from google.oauth2.service_account import Credentials
+import requests
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -87,12 +91,96 @@ try:
 except ImportError:
     st.error("❌ Falta la librería 'reportlab'. Asegúrate de incluirla en tu requirements.txt")
     st.stop()
+# --- CONSTANTES DE ACCESO ---
+CODIGO_ADMIN = "ADMIN2026"
+CODIGOS_ASESORES = ["ASE01", "ASE02", "ASE03", "VENTAS2026"]
 
 def obtener_hora_peru():
     return datetime.datetime.utcnow() - timedelta(hours=5)
-
 # ==========================================
-# 2. MOTOR GENERADOR DE PDF (SLIP SCTR LIMPIO Y PROFESIONAL)
+# 2. FUNCIONES GOOGLE SHEETS Y ZOHO CRM
+# ==========================================
+def get_gspread_client():
+    try:
+        if "gcp_service_account" not in st.secrets:
+            return None
+        scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        return gspread.authorize(credentials)
+    except Exception as e:
+        print(f"❌ Error conexión Google Sheets: {e}")
+        return None
+
+def guardar_en_sheets(datos_fila):
+    try:
+        client = get_gspread_client()
+        if not client: return
+        sheet = client.open("historial_cotizador_sctr").sheet1 
+        sheet.append_row(datos_fila)
+    except Exception as e:
+        print(f"❌ Error al guardar en Sheets SCTR: {e}")
+
+def descargar_historial_sheets():
+    try:
+        client = get_gspread_client()
+        if not client: return None
+        sheet = client.open("historial_cotizador_sctr").sheet1
+        return pd.DataFrame(sheet.get_all_records())
+    except Exception as e:
+        st.error(f"Error descargando historial SCTR: {e}")
+        return None
+
+def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, trabajadores, planilla, mejor_cia, mejor_total):
+    try:
+        if "ZOHO_REFRESH_TOKEN" not in st.secrets: return False, "Sin secretos."
+        url_auth = "https://accounts.zoho.com/oauth/v2/token"
+        datos_auth = {
+            "refresh_token": st.secrets["ZOHO_REFRESH_TOKEN"],
+            "client_id": st.secrets["ZOHO_CLIENT_ID"],
+            "client_secret": st.secrets["ZOHO_CLIENT_SECRET"],
+            "grant_type": "refresh_token"
+        }
+        res_auth = requests.post(url_auth, data=datos_auth).json()
+        access_token = res_auth.get("access_token")
+        if not access_token: raise Exception("No access token")
+
+        url_crm = "https://www.zohoapis.com/crm/v2/Leads"
+        headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
+        
+        desc = f"RUC/DNI: {ruc} | Rubro: {rubro} | Actividad: {actividad} | Trabajadores: {trabajadores} | Planilla: S/ {planilla:,.2f} | Mejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
+        payload = {
+            "data": [{
+                "Last_Name": cliente,
+                "Email": email,
+                "Mobile": str(celular),
+                "Lead_Source": "Cotizador SCTR Web",
+                "Description": desc
+            }]
+        }
+        res_crm = requests.post(url_crm, headers=headers, json=payload)
+        if res_crm.status_code in [200, 201]: return True, "Éxito CRM"
+        else: raise Exception(res_crm.text)
+    except Exception as e:
+        print(f"⚠️ Error CRM SCTR: {e}. Activando respaldo por correo...")
+        try:
+            if "EMAIL_PASSWORD" not in st.secrets: return False, "Fallo"
+            msg = MIMEMultipart()
+            msg['From'] = "administracion@yqcorredores.com"
+            msg['To'] = "administracion@yqcorredores.com"
+            msg['Subject'] = f"🔔 [RESPALDO] Nuevo Lead SCTR: {cliente} (RUC: {ruc})"
+            cuerpo = f"Nuevo Lead SCTR Generado:\n\nContratante: {cliente}\nRUC/DNI: {ruc}\nCelular: {celular}\nCorreo: {email}\nRubro: {rubro}\nActividad: {actividad}\nTrabajadores: {trabajadores}\nPlanilla: S/ {planilla:,.2f}\nMejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
+            msg.attach(MIMEText(cuerpo, 'plain'))
+            server = smtplib.SMTP("smtppro.zoho.com", 587)
+            server.starttls()
+            server.login("administracion@yqcorredores.com", st.secrets["EMAIL_PASSWORD"])
+            server.send_message(msg)
+            server.quit()
+            return True, "Enviado por respaldo correo."
+        except Exception as ex:
+            return False, str(ex)
+# ==========================================
+# 3. MOTOR GENERADOR DE PDF (SLIP SCTR LIMPIO Y PROFESIONAL)
 # ==========================================
 def generar_pdf_sctr(datos, df_res, folio):
     buffer = BytesIO()
@@ -284,7 +372,7 @@ def generar_pdf_sctr(datos, df_res, folio):
     return buffer
 
 # ==========================================
-# 3. MOTOR DE CÁLCULO SCTR (LECTOR DE EXCEL)
+# 4. MOTOR DE CÁLCULO SCTR (LECTOR DE EXCEL)
 # ==========================================
 @st.cache_data
 def cargar_tarifario_sctr():
@@ -376,7 +464,7 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
     return df_out
 
 # ==========================================
-# 4. INTERFAZ DE USUARIO (MODO CAMALEÓN + LOGOS)
+# 5. INTERFAZ DE USUARIO (MODO CAMALEÓN + LOGOS)
 # ==========================================
 df_t, df_i = cargar_tarifario_sctr()
 origen_url = st.query_params.get("origen", "")
@@ -397,6 +485,10 @@ if origen_url != "web":
         </div>
     """, unsafe_allow_html=True)
     st.divider()
+    
+# EVALUACIÓN DE ACCESO ADMIN
+codigo_actual = st.session_state.get('codigo_secreto', '')
+es_admin = (codigo_actual == CODIGO_ADMIN or codigo_actual in CODIGOS_ASESORES)
 
 if df_t is None:
     st.error("❌ No se encontró el archivo 'Tarifario_sctr.xlsx' o 'Tarifario_sctr_2.xlsx' en el proyecto.")
@@ -511,5 +603,21 @@ else:
                         Emitir Póliza por WhatsApp
                     </a>
                 """, unsafe_allow_html=True)
+# ==========================================
+# 6. PIE DE PÁGINA: ACCESO ADMIN
+# ==========================================
+st.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
 
+with st.expander("🛡️ Acceso Interno YQ (Solo Empleados)"):
+    st.text_input("Código de Autorización", type="password", placeholder="Ingresa clave", key="codigo_secreto")
+    
+    if es_admin:
+        st.success("✅ Modo Interno Activado. Historial de cotizaciones disponible:")
+        if st.button("📥 Descargar Historial SCTR (CSV)"):
+            df_hist = descargar_historial_sheets()
+            if df_hist is not None and not df_hist.empty:
+                csv_data = df_hist.to_csv(index=False).encode('utf-8-sig')
+                st.download_button("💾 Guardar Archivo CSV", csv_data, f"Historial_SCTR_{obtener_hora_peru().strftime('%d%m%Y')}.csv", "text/csv")
+            else:
+                st.info("No hay registros en Google Sheets todavía.")
 st.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
