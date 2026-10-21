@@ -92,14 +92,13 @@ def obtener_hora_peru():
     return datetime.datetime.utcnow() - timedelta(hours=5)
 
 # ==========================================
-# 2. MOTOR GENERADOR DE PDF (SLIP SCTR CON LOGOS)
+# 2. MOTOR GENERADOR DE PDF (SLIP SCTR LIMPIO Y PROFESIONAL)
 # ==========================================
 def generar_pdf_sctr(datos, df_res, folio):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=18, bottomMargin=18)
     estilos = getSampleStyleSheet()
 
-    # Paleta Oficial YQ Corredores
     AZUL_CORP = colors.HexColor("#03318e")
     VERDE_EXITO = colors.HexColor("#089685")
     DORADO_VIP = colors.HexColor("#bf8d1b")
@@ -110,18 +109,18 @@ def generar_pdf_sctr(datos, df_res, folio):
 
     st_tit = ParagraphStyle('T', parent=estilos['Heading1'], fontName='Helvetica-Bold', fontSize=13, textColor=AZUL_CORP, leading=15)
     st_sub = ParagraphStyle('S', parent=estilos['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=AZUL_CORP, spaceAfter=4)
-    st_norm = ParagraphStyle('N', parent=estilos['Normal'], fontSize=8, textColor=GRIS_TEXTO, leading=10.5)
+    st_norm = ParagraphStyle('N', parent=estilos['Normal'], fontSize=8, textColor=GRIS_TEXTO, leading=11)
     st_bold = ParagraphStyle('B', parent=st_norm, fontName='Helvetica-Bold', textColor=AZUL_CORP)
     st_th = ParagraphStyle('TH', parent=estilos['Normal'], fontSize=8, fontName='Helvetica-Bold', textColor=colors.white, alignment=1)
-    st_td = ParagraphStyle('TD', parent=estilos['Normal'], fontSize=7.5, textColor=GRIS_TEXTO, leading=9.5)
+    st_td = ParagraphStyle('TD', parent=estilos['Normal'], fontSize=7.5, textColor=GRIS_TEXTO, leading=10)
     st_td_c = ParagraphStyle('TDC', parent=st_td, alignment=1)
-    st_rec = ParagraphStyle('REC', parent=st_td_c, fontName='Helvetica-Bold', textColor=DORADO_VIP)
+    st_rec = ParagraphStyle('REC', parent=st_td_c, fontName='Helvetica-Bold', fontSize=7.5, textColor=DORADO_VIP)
 
     elements = []
 
-    # --- 1. CABECERA CON LOGO DE YQ CORREDORES ---
+    # --- CABECERA ---
     img_yq = ImageRL("logo.png", width=4.0*cm, height=2.0*cm, kind='proportional') if os.path.exists("logo.png") else Paragraph("<b>YQ CORREDORES</b>", st_tit)
-    p_header = Paragraph("<b>YQ CORREDORES DE SEGUROS</b><br/>Slip de Cotización SCTR (Salud y Pensión)<br/><font size='7.5' color='#666666'>Seguro Complementario de Trabajo de Riesgo - Ley N° 26790 / D.S. 003-98-SA</font>", st_tit)
+    p_header = Paragraph("<b>YQ CORREDORES DE SEGUROS</b><br/>Slip de Cotización SCTR (Salud y Pensión)<br/><font size='7.5' color='#666666'>Seguro Complementario de Trabajo de Riesgo - Ley N° 26790</font>", st_tit)
     fecha_str = obtener_hora_peru().strftime('%d/%m/%Y %H:%M')
     p_folio = Paragraph(f"<font color='#3c3c3c'><b>Cotización:</b> {folio}<br/><b>Fecha:</b> {fecha_str}<br/><b>Validez:</b> 15 días</font>", ParagraphStyle('F', parent=st_norm, alignment=2))
 
@@ -130,7 +129,7 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_head)
     elements.append(Spacer(1, 10))
 
-    # --- 2. DATOS DEL CONTRATANTE Y RIESGO ---
+    # --- DATOS DEL CONTRATANTE ---
     elements.append(Paragraph("1. INFORMACIÓN DEL CONTRATANTE Y RIESGO COTIZADO", st_sub))
     data_cliente = [
         [Paragraph("<b>Contratante:</b>", st_bold), Paragraph(datos['razon_social'], st_norm),
@@ -151,73 +150,51 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_cli)
     elements.append(Spacer(1, 12))
 
-    # --- 3. CUADRO COMPARATIVO CON LOGOS DE LAS COMPAÑÍAS ---
-    elements.append(Paragraph("2. PROPUESTA ECONÓMICA (PRIMAS Y TASAS INCLUYEN IGV)", st_sub))
+    # --- TABLA COMPARATIVA SIMPLIFICADA (SOLO PRECIO FINAL / BRUTO) ---
+    elements.append(Paragraph("2. PROPUESTA ECONÓMICA (MONTOS FINALES CON IGV INCLUIDO)", st_sub))
     
-    headers = ['Aseguradora', 'SCTR Salud (EPS)', 'SCTR Pensión', 'Total Mensual\n(Salud + Pensión)', 'Total Anual\nReferencial', 'Emisión Directa']
-    anchos = [3.6*cm, 3.2*cm, 3.2*cm, 2.8*cm, 2.6*cm, 2.6*cm]
+    headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', 'Total Mensual\n(Salud + Pensión)', 'Acción / Emisión']
+    anchos = [3.8*cm, 4.2*cm, 4.2*cm, 3.0*cm, 2.8*cm]
     data_tabla = [[Paragraph(h, st_th) for h in headers]]
 
     for idx, row in df_res.iterrows():
         es_mejor = (idx == 0)
         cia = str(row['Aseguradora'])
 
-        # Construcción de celda con Logo(s) de Aseguradora
         celda_cia = []
         if es_mejor:
             celda_cia.append(Paragraph("<b>► MEJOR OPCIÓN</b>", st_rec))
 
         if "Sanitas" in cia and "Protecta" in cia:
-            # Dupla Sanitas + Protecta
             logos_dupla = []
-            if os.path.exists("logo_sanitas.png"):
-                logos_dupla.append(ImageRL("logo_sanitas.png", width=1.6*cm, height=0.65*cm, kind='proportional'))
-            if os.path.exists("logo_protecta.png"):
-                logos_dupla.append(ImageRL("logo_protecta.png", width=1.6*cm, height=0.65*cm, kind='proportional'))
+            if os.path.exists("logo_sanitas.png"): logos_dupla.append(ImageRL("logo_sanitas.png", width=1.4*cm, height=0.6*cm, kind='proportional'))
+            if os.path.exists("logo_protecta.png"): logos_dupla.append(ImageRL("logo_protecta.png", width=1.4*cm, height=0.6*cm, kind='proportional'))
             if logos_dupla:
-                t_dupla = Table([logos_dupla], colWidths=[1.7*cm]*len(logos_dupla))
+                t_dupla = Table([logos_dupla], colWidths=[1.5*cm]*len(logos_dupla))
                 t_dupla.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
                 celda_cia.append(t_dupla)
             celda_cia.append(Paragraph("<b>Sanitas + Protecta</b>", st_td_c))
         else:
-            mapa_logos = {
-                "Rímac": "logo_rimac.png",
-                "Pacífico": "logo_pacifico.png",
-                "Mapfre": "logo_mapfre.png"
-            }
+            mapa_logos = {"Rímac": "logo_rimac.png", "Pacífico": "logo_pacifico.png", "Mapfre": "logo_mapfre.png"}
             ruta_logo = mapa_logos.get(cia, "")
             if ruta_logo and os.path.exists(ruta_logo):
-                t_lg = Table([[ImageRL(ruta_logo, width=2.4*cm, height=0.8*cm, kind='proportional')]], colWidths=[3.2*cm])
+                t_lg = Table([[ImageRL(ruta_logo, width=2.2*cm, height=0.7*cm, kind='proportional')]], colWidths=[3.2*cm])
                 t_lg.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
                 celda_cia.append(t_lg)
                 celda_cia.append(Paragraph(f"<b>{cia}</b>", st_td_c))
             else:
                 celda_cia.append(Paragraph(f"<font color='#03318e'><b>{cia}</b></font>", st_td_c))
 
-        # Celdas de Salud y Pensión (Mostrando Tasa, Prima Neta, Prima c/IGV y si aplicó Mínima)
-        nota_min_s = " <i>(Mín.)</i>" if row['Aplico_Min_Salud'] else ""
-        txt_salud = (
-            f"<b>Tasa: {row['Tasa_Salud']:.2f}%</b><br/>"
-            f"Neta: S/ {row['Neto_Salud']:,.2f}{nota_min_s}<br/>"
-            f"<font color='#03318e'><b>c/IGV: S/ {row['Bruto_Salud']:,.2f}</b></font>"
-        )
+        # Mostramos únicamente lo que el cliente va a pagar (Bruto c/IGV)
+        tag_min_s = " <font size='6.5' color='#666666'>(Mínimo de ley)</font>" if row['Aplico_Min_Salud'] else ""
+        txt_salud = f"<b>S/ {row['Bruto_Salud']:,.2f}</b>{tag_min_s}"
+        
+        tag_min_p = " <font size='6.5' color='#666666'>(Mínimo de ley)</font>" if row['Aplico_Min_Pension'] else ""
+        txt_pension = f"<b>S/ {row['Bruto_Pension']:,.2f}</b>{tag_min_p}"
 
-        nota_min_p = " <i>(Mín.)</i>" if row['Aplico_Min_Pension'] else ""
-        txt_pension = (
-            f"<b>Tasa: {row['Tasa_Pension']:.2f}%</b><br/>"
-            f"Neta: S/ {row['Neto_Pension']:,.2f}{nota_min_p}<br/>"
-            f"<font color='#03318e'><b>c/IGV: S/ {row['Bruto_Pension']:,.2f}</b></font>"
-        )
+        txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto']:,.2f}</b></font>"
 
-        # Totales
-        txt_total_mes = (
-            f"<font color='#089685' size='9'><b>S/ {row['Total_Bruto']:,.2f}</b></font><br/>"
-            f"<font size='6.5' color='#666666'>Inc. Min. Neta:<br/>S/{row['Min_Inc_Salud']:.0f} (S) | S/{row['Min_Inc_Pension']:.0f} (P)</font>"
-        )
-        txt_total_anual = f"<font color='#03318e' size='8.5'><b>S/ {row['Total_Bruto']*12:,.2f}</b></font><br/><font size='6.5' color='#666666'>(12 meses)</font>"
-
-        # Botón WhatsApp por fila
-        msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} (Total Mensual: S/ {row['Total_Bruto']:,.2f}) para {datos['razon_social']}."
+        msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} por un total mensual de S/ {row['Total_Bruto']:,.2f} para {datos['razon_social']}."
         link_wa = f"https://wa.me/51906462225?text={urllib.parse.quote(msg_wa)}"
         txt_accion = f"<a href='{link_wa}' color='#089685'><font size='8'><b>► EMITIR<br/>AHORA</b></font></a>"
 
@@ -225,8 +202,7 @@ def generar_pdf_sctr(datos, df_res, folio):
             celda_cia,
             Paragraph(txt_salud, st_td_c),
             Paragraph(txt_pension, st_td_c),
-            Paragraph(txt_total_mes, st_td_c),
-            Paragraph(txt_total_anual, st_td_c),
+            Paragraph(txt_total, st_td_c),
             Paragraph(txt_accion, st_td_c)
         ])
 
@@ -235,7 +211,7 @@ def generar_pdf_sctr(datos, df_res, folio):
         ('BACKGROUND', (0,0), (-1,0), AZUL_CORP),
         ('GRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 5)
+        ('PADDING', (0,0), (-1,-1), 6)
     ]
     if len(df_res) > 0:
         estilos_tabla.extend([
@@ -247,26 +223,25 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(Spacer(1, 6))
 
     nota_impuestos = (
-        "<b>* Nota sobre Primas Mínimas e Impuestos:</b> Si el cálculo de (Planilla × Tasa) es menor a la Prima Mínima Neta de la compañía, se aplica la Prima Mínima <i>(Mín.)</i>. "
-        "SCTR Salud incluye 18% de IGV. SCTR Pensión incluye 3% de derecho de emisión + 18% de IGV (21.54% total), excepto Protecta Pensión que aplica 0% de derecho de emisión (solo 18% de IGV)."
+        "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) más IGV (18%) en SCTR Pensión "
+        "(excepto Protecta Pensión que aplica solo 18%). Cuando un monto indica <i>(Mínimo de ley)</i>, significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
     )
     elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
     elements.append(Spacer(1, 10))
-
-    # --- 4. RESUMEN DE COBERTURAS LEGALES (SCTR SALUD Y PENSIÓN) ---
-    elements.append(Paragraph("3. COBERTURAS DE LEY (D.S. N° 003-98-SA Y D.S. N° 009-97-SA)", st_sub))
+    # --- 3. COBERTURAS SIMPLIFICADAS Y COMERCIALES ---
+    elements.append(Paragraph("3. BENEFICIOS Y COBERTURAS PRINCIPALES", st_sub))
     
     cob_salud_txt = (
         "<b>SCTR SALUD (EPS):</b><br/>"
-        "• <b>Atención Médica Integral (100%):</b> Asistencia médica, farmacológica, hospitalaria y quirúrgica sin límite de monto ni nivel de complejidad, hasta la recuperación total del trabajador.<br/>"
-        "• <b>Rehabilitación y Prótesis:</b> Readaptación laboral, renovación de aparatos de prótesis y ortopédicos necesarios.<br/>"
-        "• <b>Salud Ocupacional:</b> Asistencia y asesoramiento preventivo promocional."
+        "• <b>Atención Médica al 100%:</b> Cobertura integral sin límite de dinero ni complejidad (clínicas, medicamentos, cirugías) hasta la recuperación total.<br/>"
+        "• <b>Rehabilitación:</b> Terapias, prótesis y aparatos ortopédicos necesarios.<br/>"
+        "• <b>Gestión:</b> Programas de prevención y salud ocupacional."
     )
     cob_pension_txt = (
         "<b>SCTR PENSIÓN (ASEGURADORA):</b><br/>"
-        "• <b>Pensión de Invalidez:</b> Vitalicia mensual del 50% (Parcial Permanente ≥50%) o 70% (Total Permanente ≥66.6%), y hasta 100% en Gran Invalidez. Indemnización única si el menoscabo es entre 20% y 50%.<br/>"
-        "• <b>Pensión de Sobrevivencia:</b> Para cónyuge/concubino (35% con hijos / 42% sin hijos), hijos menores de 18 años o inválidos (14% c/u) y padres dependientes.<br/>"
-        "• <b>Gastos de Sepelio:</b> Reembolso hasta el límite máximo vigente de la SBS/SPP."
+        "• <b>Pensión por Invalidez:</b> Ingreso mensual vitalicio para el trabajador ante accidentes de trabajo o enfermedades profesionales.<br/>"
+        "• <b>Pensión de Sobrevivencia:</b> Respaldo económico asegurado para cónyuge e hijos en caso de fallecimiento.<br/>"
+        "• <b>Gastos de Sepelio:</b> Reembolso de costos funerarios según los límites vigentes de la ley."
     )
     t_cob = Table([[Paragraph(cob_salud_txt, st_td), Paragraph(cob_pension_txt, st_td)]], colWidths=[9.0*cm, 9.0*cm])
     t_cob.setStyle(TableStyle([
@@ -277,15 +252,14 @@ def generar_pdf_sctr(datos, df_res, folio):
         ('PADDING', (0,0), (-1,-1), 6)
     ]))
     elements.append(t_cob)
-    elements.append(Spacer(1, 8))
+    elements.append(Spacer(1, 10))
 
-    # --- 5. EXCLUSIONES Y CONDICIONES DE EMISIÓN ---
+    # --- 4. EXCLUSIONES CLAVE ---
     excl_txt = (
-        "<b>PRINCIPALES EXCLUSIONES Y DELIMITACIÓN (NO CONSTITUYE ACCIDENTE DE TRABAJO):</b><br/>"
-        "• Accidentes ocurridos en el trayecto de ida y retorno al centro de trabajo (<i>in itinere</i>), salvo transporte proporcionado directamente por el empleador.<br/>"
-        "• Lesiones autoinfligidas, bajo efectos de alcohol o drogas, o por incumplimiento de una orden escrita específica del empleador.<br/>"
-        "• Accidentes de trabajadores no declarados oportunamente en la trama/planilla o durante permisos, vacaciones o actividades recreativas.<br/>"
-        "• <b>Condición de Vigencia:</b> Conforme al Art. 329 de la Ley N° 26702, la cobertura se inicia con la aceptación de la aseguradora y el pago de la prima correspondiente."
+        "<b>EXCLUSIONES Y CONSIDERACIONES IMPORTANTES:</b><br/>"
+        "• No cubre accidentes ocurridos fuera de la jornada laboral o en el trayecto habitual (casa-trabajo / <i>in itinere</i>), salvo movilidad contratada por la empresa.<br/>"
+        "• Quedan excluidos siniestros por imprudencia temeraria, embriaguez o trabajadores no declarados formalmente en la planilla/trama.<br/>"
+        "• <b>Vigencia:</b> La cobertura inicia con la aceptación formal de la aseguradora y el pago de la prima correspondiente (Art. 329 Ley 26702)."
     )
     t_excl = Table([[Paragraph(excl_txt, st_td)]], colWidths=[18.0*cm])
     t_excl.setStyle(TableStyle([
@@ -297,8 +271,8 @@ def generar_pdf_sctr(datos, df_res, folio):
     elements.append(t_excl)
     elements.append(Spacer(1, 10))
 
-    # --- 6. PIE DE PÁGINA INSTITUCIONAL ---
-    footer_txt = "<b>RESPALDO YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en caso de siniestros laborales.</i>"
+    # --- 5. PIE DE PÁGINA ---
+    footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Emisión inmediata, asesoría permanente y defensa técnica en siniestros laborales.</i>"
     elements.append(Paragraph(footer_txt, ParagraphStyle('FT', parent=st_norm, fontSize=7.5, textColor=AZUL_CORP, alignment=1)))
 
     doc.build(elements)
@@ -464,10 +438,16 @@ else:
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Generar Propuesta SCTR", type="primary", use_container_width=True):
         celular_limpio = "".join(filter(str.isdigit, str(celular)))
+        correo_limpio = email.strip()
+        
         if not razon_social.strip():
             st.error("⚠️ Por favor ingresa la Razón Social o Nombre del Contratante.")
+        elif not ruc.strip() or len(ruc.strip()) not in [8, 11]:
+            st.error("🏢 Por favor ingresa un número de RUC (11 dígitos) o DNI (8 dígitos) válido.")
         elif len(celular_limpio) != 9 or not celular_limpio.startswith('9'):
-            st.error("📱 Por favor ingresa un número de celular válido de 9 dígitos.")
+            st.error("📱 Por favor ingresa un número de celular válido de 9 dígitos (Ej: 999123456).")
+        elif not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio):
+            st.error("📧 Por favor ingresa un correo electrónico real para enviarte tu propuesta.")
         else:
             df_res = cotizar_sctr(actividad_sel, n_trabajadores, planilla_mensual)
             st.session_state['res_sctr'] = df_res
@@ -490,11 +470,9 @@ else:
         else:
             st.success(f"¡Hemos comparado el mercado! Aquí tienes las {len(df_res)} mejores opciones para tu empresa:")
             
-            df_vista = df_res[['Aseguradora', 'Tasa_Salud', 'Bruto_Salud', 'Tasa_Pension', 'Bruto_Pension', 'Total_Bruto']].copy()
-            df_vista.columns = ['Aseguradora', 'Tasa Salud', 'Salud c/IGV', 'Tasa Pensión', 'Pensión c/IGV', 'Total Mensual c/IGV']
-            df_vista['Tasa Salud'] = df_vista['Tasa Salud'].apply(lambda x: f"{x:.2f}%")
+            df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', 'Total_Bruto']].copy()
+            df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', 'Total Mensual c/IGV']
             df_vista['Salud c/IGV'] = df_vista['Salud c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
-            df_vista['Tasa Pensión'] = df_vista['Tasa Pensión'].apply(lambda x: f"{x:.2f}%")
             df_vista['Pensión c/IGV'] = df_vista['Pensión c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
             df_vista['Total Mensual c/IGV'] = df_vista['Total Mensual c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
             
