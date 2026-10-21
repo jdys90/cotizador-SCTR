@@ -263,7 +263,9 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
                 t_dupla = Table([logos_dupla], colWidths=[1.5*cm]*len(logos_dupla))
                 t_dupla.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
                 celda_cia.append(t_dupla)
-            celda_cia.append(Paragraph("<b>Sanitas + Protecta</b>", st_td_c))
+            else:
+                # Solo si NO hay logos de Sanitas/Protecta, pone el texto
+                celda_cia.append(Paragraph("<b>Sanitas + Protecta</b>", st_td_c))
         else:
             mapa_logos = {"Rímac": "logo_rimac.png", "Pacífico": "logo_pacifico.png", "Mapfre": "logo_mapfre.png"}
             ruta_logo = mapa_logos.get(cia, "")
@@ -271,8 +273,8 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
                 t_lg = Table([[ImageRL(ruta_logo, width=2.2*cm, height=0.7*cm, kind='proportional')]], colWidths=[3.2*cm])
                 t_lg.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
                 celda_cia.append(t_lg)
-                celda_cia.append(Paragraph(f"<b>{cia}</b>", st_td_c))
             else:
+                # Solo si NO hay logo, pone el texto
                 celda_cia.append(Paragraph(f"<font color='#03318e'><b>{cia}</b></font>", st_td_c))
 
         tag_min_s = " <font size='6.5' color='#666666'>(Prima Minima)</font>" if row['Aplico_Min_Salud'] else ""
@@ -540,17 +542,17 @@ else:
         correo_limpio = email.strip()
         ruc_limpio = ruc.strip()
         
-        # Validar RUC (11 dígitos, empieza en 10 o 20) o DNI (8 dígitos)
         es_ruc = bool(re.match(r'^(10|20)\d{9}$', ruc_limpio))
         es_dni = bool(re.match(r'^\d{8}$', ruc_limpio))
 
+        # Validaciones condicionadas: Si NO es admin, exige los datos. Si ES admin, lo deja pasar.
         if not razon_social.strip():
             st.error("⚠️ Por favor ingresa la Razón Social o Nombre del Contratante.")
-        elif not ruc_limpio or not (es_ruc or es_dni):
+        elif not es_admin and (not ruc_limpio or not (es_ruc or es_dni)):
             st.error("🏢 Ingresa un RUC válido (11 dígitos, empezando en 10 o 20) o un DNI válido (8 dígitos).")
-        elif len(celular_limpio) != 9 or not celular_limpio.startswith('9'):
+        elif not es_admin and (len(celular_limpio) != 9 or not celular_limpio.startswith('9')):
             st.error("📱 Por favor ingresa un número de celular válido de 9 dígitos (Ej: 999123456).")
-        elif not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio):
+        elif not es_admin and (not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio)):
             st.error("📧 Por favor ingresa un correo electrónico real para enviarte tu propuesta.")
         else:
             df_res = cotizar_sctr(actividad_sel, n_trabajadores, planilla_mensual)
