@@ -157,6 +157,7 @@ def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, tra
                 "Email": email,
                 "Mobile": str(celular),
                 "Lead_Source": "Cotizador SCTR Web",
+                "Seguro_de_Inter_s": "SCTR",
                 "Description": desc
             }]
         }
