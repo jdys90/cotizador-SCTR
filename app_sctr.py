@@ -145,14 +145,15 @@ def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, tra
         url_crm = "https://www.zohoapis.com/crm/v2/Leads"
         headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
         
-        # Detalle limpio para la descripción del CRM
-        desc = f"RUC: {ruc} | Rubro: {rubro} | Actividad: {actividad} | Trabajadores: {trabajadores} | Planilla: S/ {planilla:,.2f} | Mejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
+        # Resumen técnico que se inyectará en la descripción del CRM
+        desc = f"Rubro: {rubro} | Actividad: {actividad} | Trabajadores: {trabajadores} | Planilla: S/ {planilla:,.2f} | Mejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
         
-        # Mapeo exacto para que la Razón Social vaya a Empresa y el contacto a Nombre
+        # Mapeo exacto con los campos reales de tu CRM (Incluyendo el campo 'RUC')
         payload = {
             "data": [{
-                "Company": cliente,              # <--- Aquí se guarda la Razón Social de la empresa
-                "Last_Name": "Contacto Comercial",# <--- Nombre genérico de contacto para el lead B2B
+                "Company": cliente,                 # Va a la casilla "Empresa" en Zoho
+                "Last_Name": "Contacto Comercial",  # Apellido obligatorio para Leads en Zoho
+                "RUC": str(ruc),                    # <--- ¡Va directo al campo RUC de tu CRM!
                 "Email": email,
                 "Mobile": str(celular),
                 "Lead_Source": "Cotizador SCTR Web",
@@ -171,7 +172,7 @@ def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, tra
             msg['From'] = "administracion@yqcorredores.com"
             msg['To'] = "administracion@yqcorredores.com"
             msg['Subject'] = f"🔔 [RESPALDO] Nuevo Lead SCTR: {cliente} (RUC: {ruc})"
-            cuerpo = f"Nuevo Lead SCTR Generado:\n\nContratante: {cliente}\nRUC/DNI: {ruc}\nCelular: {celular}\nCorreo: {email}\nRubro: {rubro}\nActividad: {actividad}\nTrabajadores: {trabajadores}\nPlanilla: S/ {planilla:,.2f}\nMejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
+            cuerpo = f"Nuevo Lead SCTR Generado:\n\nContratante: {cliente}\nRUC: {ruc}\nCelular: {celular}\nCorreo: {email}\nRubro: {rubro}\nActividad: {actividad}\nTrabajadores: {trabajadores}\nPlanilla: S/ {planilla:,.2f}\nMejor Opción: {mejor_cia} (S/ {mejor_total:,.2f})"
             msg.attach(MIMEText(cuerpo, 'plain'))
             server = smtplib.SMTP("smtppro.zoho.com", 587)
             server.starttls()
