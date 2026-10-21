@@ -603,11 +603,15 @@ else:
             st.markdown("---")
             st.success(f"¡Comparativa lista! Opción recomendada destacada: **{mejor_opcion_elegida}**")
             
-            df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', 'Total_Bruto']].copy()
-            df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', 'Total Mensual c/IGV']
+           # Añadimos el cálculo anual
+            df_res['Total_Anual'] = df_res['Total_Bruto'] * 12
+            
+            df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', 'Total_Bruto', 'Total_Anual']].copy()
+            df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', 'Total Mensual', 'Inversión Anual']
             df_vista['Salud c/IGV'] = df_vista['Salud c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
             df_vista['Pensión c/IGV'] = df_vista['Pensión c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
-            df_vista['Total Mensual c/IGV'] = df_vista['Total Mensual c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
+            df_vista['Total Mensual'] = df_vista['Total Mensual'].apply(lambda x: f"S/ {x:,.2f}")
+            df_vista['Inversión Anual'] = df_vista['Inversión Anual'].apply(lambda x: f"S/ {x:,.2f}")
             
             st.dataframe(df_vista, hide_index=True, use_container_width=True)
 
