@@ -599,10 +599,22 @@ else:
                 df_res = df_res.sort_values(by=['es_top', 'Total_Bruto'], ascending=[False, True]).drop(columns=['es_top']).reset_index(drop=True)
             else:
                 mejor_opcion_elegida = opciones_cias[0]
+                
+                # Cálculos matemáticos para el speech del experto
+                mejor_total_mes = df_res.iloc[0]['Total_Bruto']
+                peor_total_mes = df_res.iloc[-1]['Total_Bruto']
+                ahorro_anual_proyectado = (peor_total_mes - mejor_total_mes) * 12
+                
+                if ahorro_anual_proyectado > 0:
+                    texto_ahorro = f", generando un ahorro proyectado de <b>S/ {ahorro_anual_proyectado:,.2f} al año</b> frente a la alternativa más costosa del mercado"
+                else:
+                    texto_ahorro = ", asegurando la tarifa base más competitiva del mercado"
+                
                 razon_admin = (
-                    "Nuestro algoritmo ha analizado el mercado SCTR filtrando las tasas de todas las aseguradoras disponibles. "
-                    "Esta opción representa la mejor relación costo-beneficio para proteger a tus trabajadores, garantizando "
-                    "cobertura inmediata ante la autoridad laboral y optimizando el presupuesto de tu empresa."
+                    f"Tras procesar las tasas de riesgo y primas mínimas vigentes para la actividad <b>{datos['actividad']}</b>, "
+                    f"nuestro algoritmo destaca a <b>{mejor_opcion_elegida}</b> como la opción de mayor eficiencia financiera. "
+                    f"Al asegurar a tu personal por <b>S/ {mejor_total_mes:,.2f} mensuales</b>, tu empresa optimiza su flujo de caja{texto_ahorro}. "
+                    f"Esta póliza garantiza tus constancias de ingreso a obra de manera inmediata y el cumplimiento total de la Ley 26790."
                 )
 
             st.markdown("---")
