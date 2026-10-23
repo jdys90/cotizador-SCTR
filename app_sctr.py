@@ -315,6 +315,19 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
     t_ofertas.setStyle(TableStyle(estilos_tabla))
     elements.append(t_ofertas)
     elements.append(Spacer(1, 6))
+    # --- NUEVA UBICACIÓN: ANÁLISIS DEL EXPERTO (PUNTO 3) ---
+    if razon_experto:
+        elements.append(Paragraph("3. ANÁLISIS Y RECOMENDACIÓN DEL EXPERTO", st_sub))
+        elements.append(Spacer(1, 4))
+        t_box = Table([[Paragraph(f"<b>JUSTIFICACIÓN COMERCIAL:</b><br/><br/>{razon_experto}", st_norm)]], colWidths=[18.0*cm])
+        t_box.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO),
+            ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP),
+            ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
+            ('PADDING', (0,0), (-1,-1), 6)
+        ]))
+        elements.append(t_box)
+        elements.append(Spacer(1, 8))
 
     algun_minimo = any(row['Aplico_Min_Salud'] or row['Aplico_Min_Pension'] for _, row in df_res.iterrows())
     if algun_minimo:
@@ -325,7 +338,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
         elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
         elements.append(Spacer(1, 10))
 
-    elements.append(Paragraph("3. BENEFICIOS Y COBERTURAS PRINCIPALES", st_sub))
+    elements.append(Paragraph("4. BENEFICIOS Y COBERTURAS PRINCIPALES", st_sub))
     cob_salud_txt = (
         "<b>SCTR SALUD (EPS):</b><br/>"
         "• <b>Atención Médica al 100%:</b> Cobertura integral sin límite de dinero ni complejidad (clínicas, medicamentos, cirugías) hasta la recuperación total.<br/>"
@@ -350,7 +363,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
     elements.append(Spacer(1, 10))
 
     excl_txt = (
-        "<b>EXCLUSIONES Y CONSIDERACIONES IMPORTANTES:</b><br/>"
+        "<b>5. EXCLUSIONES Y CONSIDERACIONES IMPORTANTES:</b><br/>"
         "• No cubre accidentes ocurridos fuera de la jornada laboral o en el trayecto habitual (casa-trabajo / <i>in itinere</i>), salvo movilidad contratada por la empresa.<br/>"
         "• Quedan excluidos siniestros por imprudencia temeraria, embriaguez o trabajadores no declarados formalmente en la planilla/trama.<br/>"
         "• <b>Vigencia:</b> La cobertura inicia con la aceptación formal de la aseguradora y el pago de la prima correspondiente (Art. 329 Ley 26702)."
@@ -365,18 +378,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
     elements.append(t_excl)
     elements.append(Spacer(1, 10))
 
-    if razon_experto:
-        elements.append(Paragraph("4. ANÁLISIS Y RECOMENDACIÓN DEL EXPERTO", st_sub))
-        elements.append(Spacer(1, 4))
-        t_box = Table([[Paragraph(f"<b>JUSTIFICACIÓN COMERCIAL:</b><br/><br/>{razon_experto}", st_norm)]], colWidths=[18.0*cm])
-        t_box.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO),
-            ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP),
-            ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-            ('PADDING', (0,0), (-1,-1), 6)
-        ]))
-        elements.append(t_box)
-        elements.append(Spacer(1, 8))
+    
 
     footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en siniestros laborales.</i>"
     elements.append(Paragraph(footer_txt, ParagraphStyle('FT', parent=st_norm, fontSize=7.5, textColor=AZUL_CORP, alignment=1)))
@@ -643,7 +645,21 @@ else:
                         Emitir Póliza por WhatsApp
                     </a>
                 """, unsafe_allow_html=True)
+# --- CROSS-SELLING ESTRATÉGICO ---
+            st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #F0F6FF 0%, #E6EEFF 100%); border: 2px solid #03318e; border-radius: 12px; padding: 20px; margin-top: 28px; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 28px;">🛡️</span>
+                        <div>
+                            <h3 style="color: #03318e; margin: 0; font-weight: 800; font-size: 1.15rem;">¿Tu empresa también necesita el Seguro Vida Ley obligatorio?</h3>
+                            <p style="color: #3c3c3c; font-size: 0.92rem; margin: 4px 0 0 0;">Solicítalo a tu asesor experto al momento de emitir tu SCTR por WhatsApp y obtén las mejores tarifas en tu <b>Pack Corporativo</b>.</p>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
+            msg_wa_pack = f"Hola YQ, acabo de cotizar mi SCTR ({folio}) para {datos['razon_social']} y también me interesa conocer el precio para agregar el Seguro de Vida Ley al paquete."
+            st.markdown(f"<a href='https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_wa_pack)}' target='_blank' style='display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; background-color: #089685; color: white; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px;'>📲 Consultar Pack (Vida Ley + SCTR) por WhatsApp</a>", unsafe_allow_html=True)
 # ==========================================
 # 6. PIE DE PÁGINA: ACCESO ADMIN
 # ==========================================
