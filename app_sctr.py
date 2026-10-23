@@ -610,13 +610,14 @@ else:
                 else:
                     texto_ahorro = ", asegurando la tarifa base más competitiva del mercado"
                 
+                actividad_para_texto = st.session_state['datos_sctr']['actividad']
+                
                 razon_admin = (
-                    f"Tras procesar las tasas de riesgo y primas mínimas vigentes para la actividad <b>{datos['actividad']}</b>, "
+                    f"Tras procesar las tasas de riesgo y primas mínimas vigentes para la actividad <b>{actividad_para_texto}</b>, "
                     f"nuestro algoritmo destaca a <b>{mejor_opcion_elegida}</b> como la opción de mayor eficiencia financiera. "
                     f"Al asegurar a tu personal por <b>S/ {mejor_total_mes:,.2f} mensuales</b>, tu empresa optimiza su flujo de caja{texto_ahorro}. "
                     f"Esta póliza garantiza tus constancias de ingreso a obra de manera inmediata y el cumplimiento total de la Ley 26790."
                 )
-
             st.markdown("---")
             st.success(f"¡Comparativa lista! Opción recomendada destacada: **{mejor_opcion_elegida}**")
             
