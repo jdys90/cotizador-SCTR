@@ -543,10 +543,18 @@ else:
             if es_admin:
                 st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación y frecuencias:")
                 
-                # --- NUEVO: PRIMA MÍNIMA SANITAS Y FRECUENCIAS ---
+                # --- NUEVO: PRIMA MÍNIMA SANITAS Y FRECUENCIAS (CON LIMPIEZA DE CACHÉ) ---
                 col_min, col_f1, col_f2 = st.columns([2, 1, 1])
                 with col_min:
                     nuevo_min = st.radio("Prima Mínima Sanitas/Protecta:", [80.0, 100.0], index=0, horizontal=True)
+                    
+                    # Si el admin cambió el radio, forzamos a que las cajitas manuales se reseteen
+                    if st.session_state.get('last_min_sanitas') != nuevo_min:
+                        st.session_state['last_min_sanitas'] = nuevo_min
+                        for k in list(st.session_state.keys()):
+                            if k.startswith('edit_s_') or k.startswith('edit_p_'):
+                                del st.session_state[k]
+
                 lista_frec = ["Mensual", "Bimestral", "Trimestral", "Semestral", "Anual"]
                 with col_f1: frec1 = st.selectbox("Frecuencia 1", lista_frec, index=0)
                 with col_f2: frec2 = st.selectbox("Frecuencia 2", lista_frec, index=4)
