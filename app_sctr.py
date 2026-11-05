@@ -187,13 +187,12 @@ def enviar_notificacion_sctr(cliente, ruc, celular, email, rubro, actividad, tra
 # ==========================================
 # 3. MOTOR GENERADOR DE PDF (SLIP SCTR CON ANÁLISIS DE EXPERTO)
 # ==========================================
-def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
+def generar_pdf_sctr(datos, df_res, folio, razon_experto="", frec1="Mensual", frec2="Anual"):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=15, leftMargin=15, topMargin=18, bottomMargin=18)
     estilos = getSampleStyleSheet()
 
     AZUL_CORP = colors.HexColor("#03318e")
-    VERDE_EXITO = colors.HexColor("#089685")
     DORADO_VIP = colors.HexColor("#bf8d1b")
     AZUL_CLARO = colors.HexColor("#F0F6FF")
     GRIS_TEXTO = colors.HexColor("#3c3c3c")
@@ -232,29 +231,28 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
     ]
     t_cli = Table(data_cliente, colWidths=[2.8*cm, 7.7*cm, 3.0*cm, 4.5*cm])
     t_cli.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO),
-        ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 5)
+        ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO), ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 5)
     ]))
     elements.append(t_cli)
     elements.append(Spacer(1, 12))
 
     elements.append(Paragraph("2. PROPUESTA ECONÓMICA (MONTOS FINALES CON IGV INCLUIDO)", st_sub))
     
-    headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', 'Total Mensual\n(Salud + Pensión)', 'Total Anual\n(12 meses)', 'Acción / Emisión']
-    # Redistribuimos los anchos para sumar los 18cm totales de la hoja A4
-    anchos = [3.4*cm, 3.4*cm, 3.4*cm, 2.6*cm, 2.6*cm, 2.6*cm]
+    # --- MULTIPLICADORES DINÁMICOS PARA EL PDF ---
+    mult_map = {"Mensual": 1, "Bimestral": 2, "Trimestral": 3, "Semestral": 6, "Anual": 12}
+    m1 = mult_map.get(frec1, 1)
+    m2 = mult_map.get(frec2, 12)
+
+    headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', f'Total {frec1}\n(Salud + Pensión)', f'Total {frec2}', 'Acción / Emisión']
+    anchos = [3.4*cm, 3.2*cm, 3.2*cm, 2.8*cm, 2.8*cm, 2.6*cm]
     data_tabla = [[Paragraph(h, st_th) for h in headers]]
     
     for idx, row in df_res.iterrows():
         es_mejor = (idx == 0)
         cia = str(row['Aseguradora'])
-
         celda_cia = []
-        if es_mejor:
-            celda_cia.append(Paragraph("<b>► MEJOR OPCIÓN</b>", st_rec))
+        if es_mejor: celda_cia.append(Paragraph("<b>► MEJOR OPCIÓN</b>", st_rec))
 
         if "Sanitas" in cia and "Protecta" in cia:
             logos_dupla = []
@@ -265,7 +263,6 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
                 t_dupla.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
                 celda_cia.append(t_dupla)
             else:
-                # Solo si NO hay logos de Sanitas/Protecta, pone el texto
                 celda_cia.append(Paragraph("<b>Sanitas + Protecta</b>", st_td_c))
         else:
             mapa_logos = {"Rímac": "logo_rimac.png", "Pacífico": "logo_pacifico.png", "Mapfre": "logo_mapfre.png"}
@@ -275,110 +272,57 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto=""):
                 t_lg.setStyle(TableStyle([('ALIGN', (0,0), (-1,-1), 'CENTER')]))
                 celda_cia.append(t_lg)
             else:
-                # Solo si NO hay logo, pone el texto
                 celda_cia.append(Paragraph(f"<font color='#03318e'><b>{cia}</b></font>", st_td_c))
 
-        tag_min_s = " <font size='6.5' color='#666666'>(Prima Minima)</font>" if row['Aplico_Min_Salud'] else ""
+        tag_min_s = " <font size='6.5' color='#666666'>(Min)</font>" if row['Aplico_Min_Salud'] else ""
         txt_salud = f"<b>S/ {row['Bruto_Salud']:,.2f}</b>{tag_min_s}"
         
-        tag_min_p = " <font size='6.5' color='#666666'>(Prima Minima)</font>" if row['Aplico_Min_Pension'] else ""
+        tag_min_p = " <font size='6.5' color='#666666'>(Min)</font>" if row['Aplico_Min_Pension'] else ""
         txt_pension = f"<b>S/ {row['Bruto_Pension']:,.2f}</b>{tag_min_p}"
 
-        txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto']:,.2f}</b></font>"
-        txt_anual = f"<font color='#03318e' size='8.5'><b>S/ {row['Total_Bruto'] * 12:,.2f}</b></font>"
+        txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto'] * m1:,.2f}</b></font>"
+        txt_anual = f"<font color='#03318e' size='8.5'><b>S/ {row['Total_Bruto'] * m2:,.2f}</b></font>"
 
-        msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} por S/ {row['Total_Bruto']:,.2f} mensuales para {datos['razon_social']}."
+        msg_wa = f"Hola YQ, revisé mi cotización {folio} y deseo emitir el SCTR con {cia} para {datos['razon_social']}."
         link_wa = f"https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_wa)}"
         txt_accion = f"<a href='{link_wa}' color='#089685'><font size='8'><b>► EMITIR<br/>AHORA</b></font></a>"
 
-        data_tabla.append([
-            celda_cia,
-            Paragraph(txt_salud, st_td_c),
-            Paragraph(txt_pension, st_td_c),
-            Paragraph(txt_total, st_td_c),
-            Paragraph(txt_anual, st_td_c), # <--- Nueva celda anual insertada aquí
-            Paragraph(txt_accion, st_td_c)
-        ])
+        data_tabla.append([celda_cia, Paragraph(txt_salud, st_td_c), Paragraph(txt_pension, st_td_c), Paragraph(txt_total, st_td_c), Paragraph(txt_anual, st_td_c), Paragraph(txt_accion, st_td_c)])
 
     t_ofertas = Table(data_tabla, colWidths=anchos, repeatRows=1)
-    estilos_tabla = [
-        ('BACKGROUND', (0,0), (-1,0), AZUL_CORP),
-        ('GRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 6)
-    ]
-    if len(df_res) > 0:
-        estilos_tabla.extend([
-            ('BACKGROUND', (0,1), (-1,1), AZUL_CLARO),
-            ('BOX', (0,1), (-1,1), 1.5, AZUL_CORP)
-        ])
+    estilos_tabla = [('BACKGROUND', (0,0), (-1,0), AZUL_CORP), ('GRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 6)]
+    if len(df_res) > 0: estilos_tabla.extend([('BACKGROUND', (0,1), (-1,1), AZUL_CLARO), ('BOX', (0,1), (-1,1), 1.5, AZUL_CORP)])
     t_ofertas.setStyle(TableStyle(estilos_tabla))
     elements.append(t_ofertas)
     elements.append(Spacer(1, 6))
-    # --- NUEVA UBICACIÓN: ANÁLISIS DEL EXPERTO (PUNTO 3) ---
+
     if razon_experto:
         elements.append(Paragraph("3. ANÁLISIS Y RECOMENDACIÓN DEL EXPERTO", st_sub))
         elements.append(Spacer(1, 4))
         t_box = Table([[Paragraph(f"<b>JUSTIFICACIÓN COMERCIAL:</b><br/><br/>{razon_experto}", st_norm)]], colWidths=[18.0*cm])
-        t_box.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO),
-            ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP),
-            ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-            ('PADDING', (0,0), (-1,-1), 6)
-        ]))
+        t_box.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO), ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP), ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('PADDING', (0,0), (-1,-1), 6)]))
         elements.append(t_box)
         elements.append(Spacer(1, 8))
 
     algun_minimo = any(row['Aplico_Min_Salud'] or row['Aplico_Min_Pension'] for _, row in df_res.iterrows())
     if algun_minimo:
-        nota_impuestos = (
-            "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) según corresponda. "
-            "Cuando un importe indica <i>(Prima Mínima)</i>, significa que la planilla declarada activa la prima mínima mensual obligatoria de la aseguradora."
-        )
+        nota_impuestos = "<b>* Nota Comercial:</b> Los montos mostrados son finales e incluyen el IGV (18%) en SCTR Salud, y el Derecho de Emisión (3%) según corresponda. Cuando un importe indica <i>(Min)</i>, significa que la planilla declarada activa la prima mínima de la aseguradora."
         elements.append(Paragraph(nota_impuestos, ParagraphStyle('NI', parent=st_norm, fontSize=7, textColor=colors.HexColor("#555555"))))
         elements.append(Spacer(1, 10))
 
     elements.append(Paragraph("4. BENEFICIOS Y COBERTURAS PRINCIPALES", st_sub))
-    cob_salud_txt = (
-        "<b>SCTR SALUD (EPS):</b><br/>"
-        "• <b>Atención Médica al 100%:</b> Cobertura integral sin límite de dinero ni complejidad (clínicas, medicamentos, cirugías) hasta la recuperación total.<br/>"
-        "• <b>Rehabilitación:</b> Terapias, prótesis y aparatos ortopédicos necesarios.<br/>"
-        "• <b>Gestión:</b> Programas de prevención y salud ocupacional."
-    )
-    cob_pension_txt = (
-        "<b>SCTR PENSIÓN (ASEGURADORA):</b><br/>"
-        "• <b>Pensión por Invalidez:</b> Ingreso mensual vitalicio para el trabajador ante accidentes de trabajo o enfermedades profesionales.<br/>"
-        "• <b>Pensión de Sobrevivencia:</b> Respaldo económico asegurado para cónyuge e hijos en caso de fallecimiento.<br/>"
-        "• <b>Gastos de Sepelio:</b> Reembolso de costos funerarios según los límites vigentes de la ley."
-    )
+    cob_salud_txt = "<b>SCTR SALUD (EPS):</b><br/>• <b>Atención Médica al 100%:</b> Cobertura integral sin límite de dinero ni complejidad (clínicas, medicamentos, cirugías) hasta la recuperación total.<br/>• <b>Rehabilitación:</b> Terapias, prótesis y aparatos ortopédicos necesarios.<br/>• <b>Gestión:</b> Programas de prevención y salud ocupacional."
+    cob_pension_txt = "<b>SCTR PENSIÓN (ASEGURADORA):</b><br/>• <b>Pensión por Invalidez:</b> Ingreso mensual vitalicio para el trabajador ante accidentes de trabajo o enfermedades profesionales.<br/>• <b>Pensión de Sobrevivencia:</b> Respaldo económico asegurado para cónyuge e hijos en caso de fallecimiento.<br/>• <b>Gastos de Sepelio:</b> Reembolso de costos funerarios según los límites vigentes de la ley."
     t_cob = Table([[Paragraph(cob_salud_txt, st_td), Paragraph(cob_pension_txt, st_td)]], colWidths=[9.0*cm, 9.0*cm])
-    t_cob.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO),
-        ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-        ('INNERGRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('PADDING', (0,0), (-1,-1), 6)
-    ]))
+    t_cob.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), GRIS_FONDO), ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('INNERGRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 6)]))
     elements.append(t_cob)
     elements.append(Spacer(1, 10))
 
-    excl_txt = (
-        "<b>5. EXCLUSIONES Y CONSIDERACIONES IMPORTANTES:</b><br/>"
-        "• No cubre accidentes ocurridos fuera de la jornada laboral o en el trayecto habitual (casa-trabajo / <i>in itinere</i>), salvo movilidad contratada por la empresa.<br/>"
-        "• Quedan excluidos siniestros por imprudencia temeraria, embriaguez o trabajadores no declarados formalmente en la planilla/trama.<br/>"
-        "• <b>Vigencia:</b> La cobertura inicia con la aceptación formal de la aseguradora y el pago de la prima correspondiente (Art. 329 Ley 26702)."
-    )
+    excl_txt = "<b>5. EXCLUSIONES Y CONSIDERACIONES IMPORTANTES:</b><br/>• No cubre accidentes ocurridos fuera de la jornada laboral o en el trayecto habitual (casa-trabajo), salvo movilidad contratada por la empresa.<br/>• Quedan excluidos siniestros por imprudencia temeraria, embriaguez o trabajadores no declarados formalmente en la planilla.<br/>• <b>Vigencia:</b> La cobertura inicia con la aceptación formal de la aseguradora y el pago de la prima correspondiente."
     t_excl = Table([[Paragraph(excl_txt, st_td)]], colWidths=[18.0*cm])
-    t_excl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F0F4F8")),
-        ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP),
-        ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE),
-        ('PADDING', (0,0), (-1,-1), 6)
-    ]))
+    t_excl.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F0F4F8")), ('LINELEFT', (0,0), (-1,-1), 2, AZUL_CORP), ('BOX', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('PADDING', (0,0), (-1,-1), 6)]))
     elements.append(t_excl)
     elements.append(Spacer(1, 10))
-
-    
 
     footer_txt = "<b>YQ CORREDORES DE SEGUROS (Código SBS N5410 | RUC 10421076184):</b> <i>Te acompañamos en la emisión inmediata de constancias, inclusiones de personal en minutos y defensa técnica en siniestros laborales.</i>"
     elements.append(Paragraph(footer_txt, ParagraphStyle('FT', parent=st_norm, fontSize=7.5, textColor=AZUL_CORP, alignment=1)))
@@ -406,7 +350,7 @@ def cargar_tarifario_sctr():
         st.error(f"Error leyendo Excel SCTR: {e}")
         return None, None
 
-def cotizar_sctr(actividad_elegida, trabajadores, planilla):
+def cotizar_sctr(actividad_elegida, trabajadores, planilla, min_sanitas_admin=80.0):
     df_t, df_i = cargar_tarifario_sctr()
     if df_t is None or df_i is None: return pd.DataFrame()
 
@@ -432,13 +376,16 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
         tasa_salud = float(str(val_s).replace(',', '.'))
         tasa_pension = float(str(val_p).replace(',', '.'))
 
-        imp_salud = float(df_i[col_salud].iloc[0])
-        min_emision_salud = float(df_i[col_salud].iloc[1])
-        min_inc_salud = float(df_i[col_salud].iloc[2])
+        # --- LÓGICA DE PRIMA MÍNIMA DINÁMICA ---
+        if cia_nombre == "Sanitas - Protecta":
+            min_emision_salud = float(min_sanitas_admin)
+            min_emision_pension = float(min_sanitas_admin)
+        else:
+            min_emision_salud = float(df_i[col_salud].iloc[1])
+            min_emision_pension = float(df_i[col_pension].iloc[1])
 
+        imp_salud = float(df_i[col_salud].iloc[0])
         imp_pension = float(df_i[col_pension].iloc[0])
-        min_emision_pension = float(df_i[col_pension].iloc[1])
-        min_inc_pension = float(df_i[col_pension].iloc[2])
 
         neto_calc_salud = planilla * (tasa_salud / 100.0)
         aplico_min_salud = neto_calc_salud < min_emision_salud
@@ -460,8 +407,6 @@ def cotizar_sctr(actividad_elegida, trabajadores, planilla):
             "Aplico_Min_Salud": aplico_min_salud,
             "Bruto_Pension": round(bruto_pension, 2),
             "Aplico_Min_Pension": aplico_min_pension,
-            "Min_Inc_Salud": round(min_inc_salud, 2),
-            "Min_Inc_Pension": round(min_inc_pension, 2),
             "Total_Bruto": round(total_bruto, 2)
         })
 
@@ -528,18 +473,24 @@ else:
 
     RMV_VIGENTE = 1230.0
     col_t1, col_t2 = st.columns(2)
-    with col_t1:
-        n_trabajadores = st.number_input("Número de Trabajadores", min_value=1, max_value=5000, value=1)
-    with col_t2:
+    with col_t1: 
+        n_trabajadores = st.number_input("N° Trabajadores", min_value=1, max_value=5000, value=1)
+    with col_t2: 
         planilla_minima_legal = float(n_trabajadores * RMV_VIGENTE)
+        # 🔓 Desbloqueamos el piso mínimo si es Admin (para permitir practicantes/part-time)
+        limite_inferior = 0.0 if es_admin else planilla_minima_legal
+        
         planilla_mensual = st.number_input(
             "Planilla Total Mensual (S/)", 
-            min_value=planilla_minima_legal, 
-            max_value=10000000.0, 
+            min_value=limite_inferior, 
             value=planilla_minima_legal, 
             step=100.0
         )
-        st.caption(f"*Calculado sobre el sueldo mínimo vigente (S/ 1,230.00 por trabajador = S/ {planilla_minima_legal:,.2f}). Puedes digitar un monto mayor.*")
+    
+    if es_admin:
+        st.caption(f"🔓 *Modo Corredor: Límite mínimo desbloqueado (acepta practicantes). Mínimo de ley: S/ {planilla_minima_legal:,.2f}.*")
+    else:
+        st.caption(f"*Calculado sobre el sueldo mínimo (S/ {planilla_minima_legal:,.2f}). Puedes digitar un monto mayor.*")
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Generar Propuesta SCTR", type="primary", use_container_width=True):
@@ -590,53 +541,93 @@ else:
             opciones_cias = df_res['Aseguradora'].tolist()
             
             if es_admin:
-                st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación para el cliente:")
+                st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación y frecuencias:")
+                
+                # --- NUEVO: PRIMA MÍNIMA SANITAS Y FRECUENCIAS ---
+                col_min, col_f1, col_f2 = st.columns([2, 1, 1])
+                with col_min:
+                    nuevo_min = st.radio("Prima Mínima Sanitas/Protecta:", [80.0, 100.0], index=0, horizontal=True)
+                lista_frec = ["Mensual", "Bimestral", "Trimestral", "Semestral", "Anual"]
+                with col_f1: frec1 = st.selectbox("Frecuencia 1", lista_frec, index=0)
+                with col_f2: frec2 = st.selectbox("Frecuencia 2", lista_frec, index=4)
+
+                # Recalculamos con el nuevo mínimo elegido por el Admin
+                df_res = cotizar_sctr(datos['actividad'], datos['trabajadores'], datos['planilla'], nuevo_min)
+                opciones_cias = df_res['Aseguradora'].tolist()
+                
                 mejor_opcion_elegida = st.selectbox("Selecciona la Aseguradora a destacar como 'Mejor Opción':", opciones_cias, index=0)
-                razon_default = f"Este plan ofrece la tarifa más competitiva del mercado para la actividad de {st.session_state['datos_sctr']['rubro']}, optimizando los costos de planilla y cumpliendo con las exigencias de ley."
-                razon_admin = st.text_area("Motivo (Análisis del Experto para el PDF):", value=razon_default)
+                
+                # --- NUEVO: EDICIÓN MANUAL DE PRECIOS ---
+                with st.expander("✏️ Editar Precios Manualmente (SCTR Salud y Pensión c/IGV)"):
+                    for idx, row in df_res.iterrows():
+                        cia = row['Aseguradora']
+                        c_edit1, c_edit2, c_edit3 = st.columns([2, 1, 1])
+                        with c_edit1: st.write(f"**{cia}**")
+                        with c_edit2:
+                            nuevo_salud = st.number_input(f"Salud ({cia})", value=float(row['Bruto_Salud']), step=1.0, key=f"edit_s_{cia}")
+                            df_res.at[idx, 'Bruto_Salud'] = nuevo_salud
+                        with c_edit3:
+                            nuevo_pension = st.number_input(f"Pensión ({cia})", value=float(row['Bruto_Pension']), step=1.0, key=f"edit_p_{cia}")
+                            df_res.at[idx, 'Bruto_Pension'] = nuevo_pension
+                        df_res.at[idx, 'Total_Bruto'] = round(nuevo_salud + nuevo_pension, 2)
                 
                 df_res['es_top'] = df_res['Aseguradora'] == mejor_opcion_elegida
                 df_res = df_res.sort_values(by=['es_top', 'Total_Bruto'], ascending=[False, True]).drop(columns=['es_top']).reset_index(drop=True)
-            else:
-                mejor_opcion_elegida = opciones_cias[0]
                 
-                # Cálculos matemáticos para el speech del experto
                 mejor_total_mes = df_res.iloc[0]['Total_Bruto']
                 peor_total_mes = df_res.iloc[-1]['Total_Bruto']
                 ahorro_anual_proyectado = (peor_total_mes - mejor_total_mes) * 12
                 
-                if ahorro_anual_proyectado > 0:
-                    texto_ahorro = f", generando un ahorro proyectado de <b>S/ {ahorro_anual_proyectado:,.2f} al año</b> frente a la alternativa más costosa del mercado"
-                else:
-                    texto_ahorro = ", asegurando la tarifa base más competitiva del mercado"
+                texto_ahorro = f", generando un ahorro proyectado de <b>S/ {ahorro_anual_proyectado:,.2f} al año</b> frente a la alternativa más costosa del mercado" if ahorro_anual_proyectado > 0 else ", asegurando la tarifa base más competitiva del mercado"
                 
                 actividad_para_texto = st.session_state['datos_sctr']['actividad']
+                razon_default = (
+                    f"Tras procesar las tasas de riesgo y primas mínimas vigentes para la actividad <b>{actividad_para_texto}</b>, "
+                    f"nuestro algoritmo destaca a <b>{mejor_opcion_elegida}</b> como la opción de mayor eficiencia financiera. "
+                    f"Al asegurar a tu personal por <b>S/ {mejor_total_mes:,.2f} mensuales</b>, tu empresa optimiza su flujo de caja{texto_ahorro}. "
+                    f"Esta póliza garantiza tus constancias de ingreso a obra de manera inmediata y el cumplimiento total de la Ley 26790."
+                )
+                razon_admin = st.text_area("Motivo (Análisis del Experto para el PDF):", value=razon_default)
+            else:
+                mejor_opcion_elegida = opciones_cias[0]
+                frec1, frec2 = "Mensual", "Anual" # Fijo para clientes normales
                 
+                mejor_total_mes = df_res.iloc[0]['Total_Bruto']
+                peor_total_mes = df_res.iloc[-1]['Total_Bruto']
+                ahorro_anual_proyectado = (peor_total_mes - mejor_total_mes) * 12
+                
+                texto_ahorro = f", generando un ahorro proyectado de <b>S/ {ahorro_anual_proyectado:,.2f} al año</b> frente a la alternativa más costosa del mercado" if ahorro_anual_proyectado > 0 else ", asegurando la tarifa base más competitiva del mercado"
+                
+                actividad_para_texto = st.session_state['datos_sctr']['actividad']
                 razon_admin = (
                     f"Tras procesar las tasas de riesgo y primas mínimas vigentes para la actividad <b>{actividad_para_texto}</b>, "
                     f"nuestro algoritmo destaca a <b>{mejor_opcion_elegida}</b> como la opción de mayor eficiencia financiera. "
                     f"Al asegurar a tu personal por <b>S/ {mejor_total_mes:,.2f} mensuales</b>, tu empresa optimiza su flujo de caja{texto_ahorro}. "
                     f"Esta póliza garantiza tus constancias de ingreso a obra de manera inmediata y el cumplimiento total de la Ley 26790."
                 )
+
             st.markdown("---")
             st.success(f"¡Comparativa lista! Opción recomendada destacada: **{mejor_opcion_elegida}**")
             
-           # Añadimos el cálculo anual
-            df_res['Total_Anual'] = df_res['Total_Bruto'] * 12
+            # --- CÁLCULO DE FRECUENCIAS DINÁMICAS (Vista web) ---
+            mult_map = {"Mensual": 1, "Bimestral": 2, "Trimestral": 3, "Semestral": 6, "Anual": 12}
+            m1 = mult_map.get(frec1, 1)
+            m2 = mult_map.get(frec2, 12)
             
-            df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', 'Total_Bruto', 'Total_Anual']].copy()
-            df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', 'Total Mensual', 'Inversión Anual']
-            df_vista['Salud c/IGV'] = df_vista['Salud c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
-            df_vista['Pensión c/IGV'] = df_vista['Pensión c/IGV'].apply(lambda x: f"S/ {x:,.2f}")
-            df_vista['Total Mensual'] = df_vista['Total Mensual'].apply(lambda x: f"S/ {x:,.2f}")
-            df_vista['Inversión Anual'] = df_vista['Inversión Anual'].apply(lambda x: f"S/ {x:,.2f}")
+            df_res[f'Total_{frec1}'] = df_res['Total_Bruto'] * m1
+            df_res[f'Total_{frec2}'] = df_res['Total_Bruto'] * m2
+            
+            df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', f'Total_{frec1}', f'Total_{frec2}']].copy()
+            df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', f'Total {frec1}', f'Total {frec2}']
+            for c in df_vista.columns[1:]: 
+                df_vista[c] = df_vista[c].apply(lambda x: f"S/ {x:,.2f}")
             
             st.dataframe(df_vista, hide_index=True, use_container_width=True)
 
             datos = st.session_state['datos_sctr']
             folio = st.session_state['id_sctr']
             
-            pdf_buffer = generar_pdf_sctr(datos, df_res, folio, razon_admin)
+            pdf_buffer = generar_pdf_sctr(datos, df_res, folio, razon_admin, frec1, frec2)
             nombre_clean = re.sub(r'[^a-zA-Z0-9]', '', datos['razon_social'])[:15] or "Empresa"
             
             col_b1, col_b2 = st.columns(2)
