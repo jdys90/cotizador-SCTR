@@ -495,6 +495,7 @@ else:
     st.markdown("<br>", unsafe_allow_html=True)
     
     # --- NUEVOS CONTROLES ADMIN ANTES DE COTIZAR ---
+    # --- NUEVOS CONTROLES ADMIN ANTES DE COTIZAR ---
     if es_admin:
         st.markdown("""
         <div style='background-color: #F8F9FA; border-left: 4px solid #03318e; padding: 15px; border-radius: 4px; margin-bottom: 20px;'>
@@ -505,6 +506,25 @@ else:
         col_min, col_f1, col_f2 = st.columns([2, 1, 1])
         with col_min:
             min_sanitas_admin = st.radio("Prima Mínima Sanitas/Protecta:", [80.0, 100.0], index=0, horizontal=True)
+            
+            # --- REACTIVIDAD: Actualización instantánea en vivo ---
+            if 'last_min_sanitas' not in st.session_state:
+                st.session_state['last_min_sanitas'] = 80.0
+                
+            if min_sanitas_admin != st.session_state['last_min_sanitas']:
+                st.session_state['last_min_sanitas'] = min_sanitas_admin
+                
+                # Borramos la memoria de las cajitas manuales para que no pisen el nuevo cálculo
+                for k in list(st.session_state.keys()):
+                    if k.startswith('edit_s_') or k.startswith('edit_p_'):
+                        del st.session_state[k]
+                        
+                # Recalculamos la tabla de inmediato si ya se generó una propuesta antes
+                if st.session_state.get('datos_sctr'):
+                    d = st.session_state['datos_sctr']
+                    st.session_state['res_sctr'] = cotizar_sctr(d['actividad'], d['trabajadores'], d['planilla'], min_sanitas_admin)
+                    st.rerun() # Refrescamos la pantalla automáticamente
+                    
         lista_frec = ["Mensual", "Bimestral", "Trimestral", "Semestral", "Anual"]
         with col_f1: 
             frec1 = st.selectbox("Frecuencia 1", lista_frec, index=0)
