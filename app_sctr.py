@@ -551,8 +551,11 @@ else:
                 with col_f1: frec1 = st.selectbox("Frecuencia 1", lista_frec, index=0)
                 with col_f2: frec2 = st.selectbox("Frecuencia 2", lista_frec, index=4)
 
-                # Recalculamos con el nuevo mínimo elegido por el Admin
-                df_res = cotizar_sctr(datos['actividad'], datos['trabajadores'], datos['planilla'], nuevo_min)
+               # Recalculamos leyendo los datos directamente desde la memoria (session_state) para evitar NameError
+                act = st.session_state['datos_sctr']['actividad']
+                trab = st.session_state['datos_sctr']['trabajadores']
+                plan = st.session_state['datos_sctr']['planilla']
+                df_res = cotizar_sctr(act, trab, plan, nuevo_min)
                 opciones_cias = df_res['Aseguradora'].tolist()
                 
                 mejor_opcion_elegida = st.selectbox("Selecciona la Aseguradora a destacar como 'Mejor Opción':", opciones_cias, index=0)
