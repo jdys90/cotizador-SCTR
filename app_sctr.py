@@ -470,29 +470,31 @@ else:
     link_no_encuentra = f"https://api.whatsapp.com/send?phone=51906462225&text={urllib.parse.quote(msg_no_encuentra)}"
     st.markdown(f"<a href='{link_no_encuentra}' target='_blank' style='color: #089685; font-weight: 700; text-decoration: underline;'>👉 Clic aquí para cotizar por WhatsApp si tu actividad no figura en la lista</a>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
-
-    RMV_VIGENTE = 1230.0
-    col_t1, col_t2 = st.columns(2)
-    with col_t1: 
-        n_trabajadores = st.number_input("N° Trabajadores", min_value=1, max_value=5000, value=1)
-    with col_t2: 
-        planilla_minima_legal = float(n_trabajadores * RMV_VIGENTE)
-        # 🔓 Desbloqueamos el piso mínimo si es Admin (para permitir practicantes/part-time)
-        limite_inferior = 0.0 if es_admin else planilla_minima_legal
-        
-        planilla_mensual = st.number_input(
-            "Planilla Total Mensual (S/)", 
-            min_value=limite_inferior, 
-            value=planilla_minima_legal, 
-            step=100.0
-        )
     
+    # --- NUEVOS CONTROLES ADMIN ANTES DE COTIZAR ---
     if es_admin:
-        st.caption(f"🔓 *Modo Corredor: Límite mínimo desbloqueado (acepta practicantes). Mínimo de ley: S/ {planilla_minima_legal:,.2f}.*")
+        st.markdown("""
+        <div style='background-color: #F8F9FA; border-left: 4px solid #03318e; padding: 15px; border-radius: 4px; margin-bottom: 20px;'>
+            <h4 style='color: #03318e; margin-top: 0;'>⚙️ Parámetros Avanzados (Modo Corredor)</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col_min, col_f1, col_f2 = st.columns([2, 1, 1])
+        with col_min:
+            min_sanitas_admin = st.radio("Prima Mínima Sanitas/Protecta:", [80.0, 100.0], index=0, horizontal=True)
+        lista_frec = ["Mensual", "Bimestral", "Trimestral", "Semestral", "Anual"]
+        with col_f1: 
+            frec1 = st.selectbox("Frecuencia 1", lista_frec, index=0)
+        with col_f2: 
+            frec2 = st.selectbox("Frecuencia 2", lista_frec, index=4)
     else:
-        st.caption(f"*Calculado sobre el sueldo mínimo (S/ {planilla_minima_legal:,.2f}). Puedes digitar un monto mayor.*")
-
-    st.markdown("<br>", unsafe_allow_html=True)
+        min_sanitas_admin = 80.0
+        frec1 = "Mensual"
+        frec2 = "Anual"
+    
+    # ---------------------------------------------------------
+    # PASO 1 UX: BOTÓN PRINCIPAL (SOLO SCTR)
+    # ---------------------------------------------------------
     if st.button("Generar Propuesta SCTR", type="primary", use_container_width=True):
         celular_limpio = "".join(filter(str.isdigit, str(celular)))
         correo_limpio = email.strip()
@@ -541,35 +543,11 @@ else:
             opciones_cias = df_res['Aseguradora'].tolist()
             
             if es_admin:
-                st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación y frecuencias:")
-                
-                # --- NUEVO: PRIMA MÍNIMA SANITAS Y FRECUENCIAS (CON LIMPIEZA DE CACHÉ) ---
-                col_min, col_f1, col_f2 = st.columns([2, 1, 1])
-                with col_min:
-                    nuevo_min = st.radio("Prima Mínima Sanitas/Protecta:", [80.0, 100.0], index=0, horizontal=True)
-                    
-                    # Si el admin cambió el radio, forzamos a que las cajitas manuales se reseteen
-                    if st.session_state.get('last_min_sanitas') != nuevo_min:
-                        st.session_state['last_min_sanitas'] = nuevo_min
-                        for k in list(st.session_state.keys()):
-                            if k.startswith('edit_s_') or k.startswith('edit_p_'):
-                                del st.session_state[k]
-
-                lista_frec = ["Mensual", "Bimestral", "Trimestral", "Semestral", "Anual"]
-                with col_f1: frec1 = st.selectbox("Frecuencia 1", lista_frec, index=0)
-                with col_f2: frec2 = st.selectbox("Frecuencia 2", lista_frec, index=4)
-
-               # Recalculamos leyendo los datos directamente desde la memoria (session_state) para evitar NameError
-                act = st.session_state['datos_sctr']['actividad']
-                trab = st.session_state['datos_sctr']['trabajadores']
-                plan = st.session_state['datos_sctr']['planilla']
-                df_res = cotizar_sctr(act, trab, plan, nuevo_min)
-                opciones_cias = df_res['Aseguradora'].tolist()
-                
+                st.success("🔓 MODO CORREDOR ACTIVADO - Configura la recomendación y edita los precios:")
                 mejor_opcion_elegida = st.selectbox("Selecciona la Aseguradora a destacar como 'Mejor Opción':", opciones_cias, index=0)
                 
-                # --- NUEVO: EDICIÓN MANUAL DE PRECIOS ---
-                with st.expander("✏️ Editar Precios Manualmente (SCTR Salud y Pensión c/IGV)"):
+                # --- EDICIÓN MANUAL DE PRECIOS ---
+                with st.expander("✏️ Editar Precios Mensuales Manualmente (SCTR Salud y Pensión c/IGV)"):
                     for idx, row in df_res.iterrows():
                         cia = row['Aseguradora']
                         c_edit1, c_edit2, c_edit3 = st.columns([2, 1, 1])
@@ -601,7 +579,6 @@ else:
                 razon_admin = st.text_area("Motivo (Análisis del Experto para el PDF):", value=razon_default)
             else:
                 mejor_opcion_elegida = opciones_cias[0]
-                frec1, frec2 = "Mensual", "Anual" # Fijo para clientes normales
                 
                 mejor_total_mes = df_res.iloc[0]['Total_Bruto']
                 peor_total_mes = df_res.iloc[-1]['Total_Bruto']
@@ -634,7 +611,6 @@ else:
                 df_vista[c] = df_vista[c].apply(lambda x: f"S/ {x:,.2f}")
             
             st.dataframe(df_vista, hide_index=True, use_container_width=True)
-
             datos = st.session_state['datos_sctr']
             folio = st.session_state['id_sctr']
             
