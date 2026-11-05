@@ -633,7 +633,8 @@ else:
             for c in df_vista.columns[1:]: 
                 df_vista[c] = df_vista[c].apply(lambda x: f"S/ {x:,.2f}")
             
-            st.dataframe(df_vista, hide_index=True, use_container_width=True)            datos = st.session_state['datos_sctr']
+            st.dataframe(df_vista, hide_index=True, use_container_width=True)            
+            datos = st.session_state['datos_sctr']
             folio = st.session_state['id_sctr']
             
             pdf_buffer = generar_pdf_sctr(datos, df_res, folio, razon_admin, frec1, frec2)
