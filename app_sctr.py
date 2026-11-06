@@ -582,13 +582,18 @@ else:
             }
             st.session_state['id_sctr'] = f"SCTR-{obtener_hora_peru().strftime('%m%d-%H%M')}"
             
-            if not df_res.empty and not es_admin:
+            if not df_res.empty:
                 mejor_c = df_res.iloc[0]['Aseguradora']
                 mejor_t = df_res.iloc[0]['Total_Bruto']
-                enviar_notificacion_sctr(razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t)
                 
-                f_log, h_log = obtener_hora_peru().strftime('%Y-%m-%d'), obtener_hora_peru().strftime('%H:%M:%S')
-                guardar_en_sheets([f_log, h_log, st.session_state['id_sctr'], razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t])
+                # 🛡️ MODO FANTASMA: Solo se ejecuta si NO eres admin
+                if not es_admin:
+                    # 1. Enviar a Zoho CRM y Notificación por Correo
+                    enviar_notificacion_sctr(razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t)
+                    
+                    # 2. Guardar en el Historial de Google Sheets
+                    f_log, h_log = obtener_hora_peru().strftime('%Y-%m-%d'), obtener_hora_peru().strftime('%H:%M:%S')
+                    guardar_en_sheets([f_log, h_log, st.session_state['id_sctr'], razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t])
     if st.session_state.get('res_sctr') is not None:
         df_res = st.session_state['res_sctr']
         if df_res.empty:
