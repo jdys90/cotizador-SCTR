@@ -541,6 +541,7 @@ else:
         frec2 = "Anual"
     
     # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # PASO 1 UX: BOTÓN PRINCIPAL (SOLO SCTR)
     # ---------------------------------------------------------
     if st.button("Generar Propuesta SCTR", type="primary", use_container_width=True):
@@ -551,7 +552,6 @@ else:
         es_ruc = bool(re.match(r'^(10|20)\d{9}$', ruc_limpio))
         es_dni = bool(re.match(r'^\d{8}$', ruc_limpio))
 
-        # Validaciones condicionadas: Si NO es admin, exige los datos. Si ES admin, lo deja pasar.
         if not razon_social.strip():
             st.error("⚠️ Por favor ingresa la Razón Social o Nombre del Contratante.")
         elif not es_admin and (not ruc_limpio or not (es_ruc or es_dni)):
@@ -561,7 +561,14 @@ else:
         elif not es_admin and (not correo_limpio or not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", correo_limpio)):
             st.error("📧 Por favor ingresa un correo electrónico real para enviarte tu propuesta.")
         else:
-            df_res = cotizar_sctr(actividad_sel, n_trabajadores, planilla_mensual)
+            # 🧹 Limpiamos la memoria de las cajas editables CADA VEZ que se genera una nueva propuesta
+            for k in list(st.session_state.keys()):
+                if k.startswith('edit_s_') or k.startswith('edit_p_'):
+                    del st.session_state[k]
+                    
+            # 🚀 AQUÍ ESTABA EL ERROR: Obligamos al botón a leer el 100 de Sanitas en lugar de su default (80)
+            df_res = cotizar_sctr(actividad_sel, n_trabajadores, planilla_mensual, min_sanitas_admin)
+            
             st.session_state['res_sctr'] = df_res
             st.session_state['datos_sctr'] = {
                 "razon_social": razon_social.strip(),
@@ -575,14 +582,13 @@ else:
             }
             st.session_state['id_sctr'] = f"SCTR-{obtener_hora_peru().strftime('%m%d-%H%M')}"
             
-            if not df_res.empty:
+            if not df_res.empty and not es_admin:
                 mejor_c = df_res.iloc[0]['Aseguradora']
                 mejor_t = df_res.iloc[0]['Total_Bruto']
                 enviar_notificacion_sctr(razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t)
                 
                 f_log, h_log = obtener_hora_peru().strftime('%Y-%m-%d'), obtener_hora_peru().strftime('%H:%M:%S')
                 guardar_en_sheets([f_log, h_log, st.session_state['id_sctr'], razon_social.strip(), ruc_limpio, celular_limpio, correo_limpio, rubro_sel, actividad_sel, n_trabajadores, planilla_mensual, mejor_c, mejor_t])
-
     if st.session_state.get('res_sctr') is not None:
         df_res = st.session_state['res_sctr']
         if df_res.empty:
