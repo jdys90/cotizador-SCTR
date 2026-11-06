@@ -244,7 +244,8 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto="", frec1="Mensual", fr
     m1 = mult_map.get(frec1, 1)
     m2 = mult_map.get(frec2, 12)
 
-    headers = ['Aseguradora', 'SCTR Salud c/IGV', 'SCTR Pensión c/IGV', f'Total {frec1}\n(Salud + Pensión)', f'Total {frec2}', 'Acción / Emisión']
+    # Actualizamos los encabezados para que indiquen la frecuencia seleccionada
+    headers = ['Aseguradora', f'SCTR Salud {frec1}\nc/IGV', f'SCTR Pensión {frec1}\nc/IGV', f'Total {frec1}\n(Salud + Pensión)', f'Total {frec2}', 'Acción / Emisión']
     anchos = [3.4*cm, 3.2*cm, 3.2*cm, 2.8*cm, 2.8*cm, 2.6*cm]
     data_tabla = [[Paragraph(h, st_th) for h in headers]]
     
@@ -274,11 +275,15 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto="", frec1="Mensual", fr
             else:
                 celda_cia.append(Paragraph(f"<font color='#03318e'><b>{cia}</b></font>", st_td_c))
 
+        # --- MULTIPLICAMOS LAS PRIMAS INDIVIDUALES POR LA FRECUENCIA ---
+        val_salud_frec = row['Bruto_Salud'] * m1
+        val_pension_frec = row['Bruto_Pension'] * m1
+
         tag_min_s = " <font size='6.5' color='#666666'>(Min)</font>" if row['Aplico_Min_Salud'] else ""
-        txt_salud = f"<b>S/ {row['Bruto_Salud']:,.2f}</b>{tag_min_s}"
+        txt_salud = f"<b>S/ {val_salud_frec:,.2f}</b>{tag_min_s}"
         
         tag_min_p = " <font size='6.5' color='#666666'>(Min)</font>" if row['Aplico_Min_Pension'] else ""
-        txt_pension = f"<b>S/ {row['Bruto_Pension']:,.2f}</b>{tag_min_p}"
+        txt_pension = f"<b>S/ {val_pension_frec:,.2f}</b>{tag_min_p}"
 
         txt_total = f"<font color='#089685' size='9.5'><b>S/ {row['Total_Bruto'] * m1:,.2f}</b></font>"
         txt_anual = f"<font color='#03318e' size='8.5'><b>S/ {row['Total_Bruto'] * m2:,.2f}</b></font>"
@@ -288,7 +293,7 @@ def generar_pdf_sctr(datos, df_res, folio, razon_experto="", frec1="Mensual", fr
         txt_accion = f"<a href='{link_wa}' color='#089685'><font size='8'><b>► EMITIR<br/>AHORA</b></font></a>"
 
         data_tabla.append([celda_cia, Paragraph(txt_salud, st_td_c), Paragraph(txt_pension, st_td_c), Paragraph(txt_total, st_td_c), Paragraph(txt_anual, st_td_c), Paragraph(txt_accion, st_td_c)])
-
+    
     t_ofertas = Table(data_tabla, colWidths=anchos, repeatRows=1)
     estilos_tabla = [('BACKGROUND', (0,0), (-1,0), AZUL_CORP), ('GRID', (0,0), (-1,-1), 0.5, BORDE_SUAVE), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('PADDING', (0,0), (-1,-1), 6)]
     if len(df_res) > 0: estilos_tabla.extend([('BACKGROUND', (0,1), (-1,1), AZUL_CLARO), ('BOX', (0,1), (-1,1), 1.5, AZUL_CORP)])
@@ -645,15 +650,19 @@ else:
             m1 = mult_map.get(frec1, 1)
             m2 = mult_map.get(frec2, 12)
             
+            # Aplicamos el multiplicador a todas las columnas visibles
+            df_res[f'Salud_{frec1}'] = df_res['Bruto_Salud'] * m1
+            df_res[f'Pension_{frec1}'] = df_res['Bruto_Pension'] * m1
             df_res[f'Total_{frec1}'] = df_res['Total_Bruto'] * m1
             df_res[f'Total_{frec2}'] = df_res['Total_Bruto'] * m2
             
-            df_vista = df_res[['Aseguradora', 'Bruto_Salud', 'Bruto_Pension', f'Total_{frec1}', f'Total_{frec2}']].copy()
-            df_vista.columns = ['Aseguradora', 'Salud c/IGV', 'Pensión c/IGV', f'Total {frec1}', f'Total {frec2}']
+            df_vista = df_res[['Aseguradora', f'Salud_{frec1}', f'Pension_{frec1}', f'Total_{frec1}', f'Total_{frec2}']].copy()
+            df_vista.columns = ['Aseguradora', f'Salud {frec1} c/IGV', f'Pensión {frec1} c/IGV', f'Total {frec1}', f'Total {frec2}']
+            
             for c in df_vista.columns[1:]: 
                 df_vista[c] = df_vista[c].apply(lambda x: f"S/ {x:,.2f}")
             
-            st.dataframe(df_vista, hide_index=True, use_container_width=True)            
+            st.dataframe(df_vista, hide_index=True, use_container_width=True)     
             datos = st.session_state['datos_sctr']
             folio = st.session_state['id_sctr']
             
